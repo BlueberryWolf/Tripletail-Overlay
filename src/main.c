@@ -74,7 +74,6 @@ int main(void) {
     SetConfigFlags(FLAG_WINDOW_TRANSPARENT | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_UNDECORATED | FLAG_VSYNC_HINT);
     SetTraceLogLevel(LOG_NONE);
     InitWindow(500, 150, "Tripletail Overlay");
-    SetWindowOverlay(GetWindowHandle());
     SetTargetFPS(60);
 
     // stick it to the top right
@@ -113,6 +112,13 @@ int main(void) {
     strcpy(g_state.title, "Connecting...");
 
     while (!WindowShouldClose()) {
+        // give the window a moment to breathe on wayland
+        static bool overlay_set = false;
+        if (!overlay_set) {
+            SetWindowOverlay(GetWindowHandle());
+            overlay_set = true;
+        }
+
         // where is the mouse even
         float mx, my;
         GetGlobalMousePos(GetWindowHandle(), &mx, &my);
