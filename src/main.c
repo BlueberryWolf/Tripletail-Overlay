@@ -76,10 +76,12 @@ int main(void) {
     SetConfigFlags(FLAG_WINDOW_TRANSPARENT | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_UNDECORATED | FLAG_VSYNC_HINT);
     SetTraceLogLevel(LOG_NONE);
     InitWindow(500, 150, "Tripletail Overlay");
-    SetTargetFPS(60);
+    
+    // sync to monitor refresh rate
+    int monitor = GetCurrentMonitor();
+    SetTargetFPS(GetMonitorRefreshRate(monitor));
 
     // stick it to the top right
-    int monitor = GetCurrentMonitor();
     SetWindowPosition(GetMonitorWidth(monitor) - 500, 0);
 
     // audio setup
