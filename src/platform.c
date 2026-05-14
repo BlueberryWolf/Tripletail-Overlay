@@ -110,10 +110,18 @@ void GetGlobalMousePos(void *windowHandle, float *x, float *y) {
 
 void OptimizeMemory(void) { malloc_trim(0); }
 
+static int X11ErrorHandler(Display *display, XErrorEvent *error) {
+    (void)display;
+    (void)error;
+    return 0;
+}
+
 void SetWindowOverlay(void *windowHandle) {
-    // x11 atoms.. different garbage lol
     Display *display = XOpenDisplay(NULL);
     if (!display) return;
+
+    // suppress X11 errors because I think Wayland/XWayland is picky about timing
+    int (*oldHandler)(Display *, XErrorEvent *) = XSetErrorHandler(X11ErrorHandler);
 
     Window win = (Window)windowHandle;
     Atom stateAbove = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
@@ -123,6 +131,9 @@ void SetWindowOverlay(void *windowHandle) {
 
     Atom atoms[] = { stateAbove, stateSticky, stateSkipTaskbar };
     XChangeProperty(display, win, wmState, XA_ATOM, 32, PropModeReplace, (unsigned char *)atoms, 3);
+
+    XFlush(display);
+    XSetErrorHandler(oldHandler);
     XCloseDisplay(display);
 }
 
