@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # base flags
 CFLAGS="-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -I./deps/raylib/include -I./deps/kiss_fft -I./deps/stb -I./src"
@@ -18,7 +19,6 @@ else
     LDFLAGS="$LDFLAGS -Wl,--gc-sections $(pkg-config --libs raylib opusfile libcurl || echo -lraylib -lopusfile -lcurl) -lX11 -lpthread -lm -ldl -lrt"
     PLATFORM_SRC="src/platform_linux.c"
 fi
-
 
 mkdir -p build
 
@@ -57,4 +57,5 @@ if [ $? -eq 0 ]; then
     echo "Build successful: tripletail-overlay"
 else
     echo "Build failed. go check the errors lol"
+    exit 1
 fi

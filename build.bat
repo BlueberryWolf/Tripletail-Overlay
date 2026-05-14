@@ -63,4 +63,6 @@ if %ERRORLEVEL% EQU 0 (
     echo Build successful: tripletail-overlay.exe
 ) else (
     echo Build failed.
+    exit /b 1
 )
+
