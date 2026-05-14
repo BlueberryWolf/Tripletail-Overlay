@@ -17,11 +17,11 @@ Low latency, audio visualizer and desktop overlay for [Tripletail FM](https://tr
   ```
 - **Linux (Debian/Ubuntu)**: Run:
   ```bash
-  sudo apt install build-essential libcurl4-openssl-dev libopusfile-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev
+  sudo apt install build-essential libraylib-dev libcurl4-openssl-dev libopusfile-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev
   ```
 - **Linux (Arch)**: Run:
   ```bash
-  sudo pacman -S --needed base-devel curl opusfile libx11 libxcursor libxinerama libxrandr libxi mesa pkgconf
+  sudo pacman -S --needed base-devel raylib curl opusfile libx11 libxcursor libxinerama libxrandr libxi mesa pkgconf
   ```
 
 ### 2. Build
