@@ -40,7 +40,10 @@ void SetWindowOverlay(void *windowHandle) {
     HWND hwnd = (HWND)windowHandle;
 
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-    SetWindowLongPtr(hwnd, GWL_EXSTYLE, style | WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
+    // hide from taskbar and stay on top
+    style &= ~WS_EX_APPWINDOW;
+    style |= WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE;
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, style);
 
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
@@ -85,9 +88,11 @@ void GetGlobalMousePos(void *windowHandle, float *x, float *y) {
     int rx, ry, wx, wy;
     unsigned int mask;
 
-    if (windowHandle && XQueryPointer(g_display, (Window)windowHandle, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
-        if (x) *x = (float)wx;
-        if (y) *y = (float)wy;
+    // query root window to get global coords, then subtract window pos
+    if (XQueryPointer(g_display, root, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
+        Vector2 pos = GetWindowPosition();
+        if (x) *x = (float)rx - pos.x;
+        if (y) *y = (float)ry - pos.y;
     } else {
         if (x) *x = -10000.0f;
         if (y) *y = -10000.0f;
@@ -99,7 +104,9 @@ void OptimizeMemory(void) { malloc_trim(0); }
 void SetWindowOverlay(void *windowHandle) {
     if (!windowHandle || !g_display) return;
 
+    // find the actual window if it's a glfw handle
     Window win = (Window)windowHandle;
+
     Atom stateAbove = XInternAtom(g_display, "_NET_WM_STATE_ABOVE", False);
     Atom stateSticky = XInternAtom(g_display, "_NET_WM_STATE_STICKY", False);
     Atom stateSkipTaskbar = XInternAtom(g_display, "_NET_WM_STATE_SKIP_TASKBAR", False);
