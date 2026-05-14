@@ -21,39 +21,32 @@
 #undef DrawTextEx
 #undef PlaySound
 
-void InitPlatform(void) { CoInitialize(NULL); }
+void InitPlatform(void) {
+    // nothing special needed here for now
+}
 
 void GetGlobalMousePos(void *windowHandle, float *x, float *y) {
     POINT p;
     GetCursorPos(&p);
+    if (windowHandle) ScreenToClient((HWND)windowHandle, &p);
     if (x) *x = (float)p.x;
     if (y) *y = (float)p.y;
 }
 
-void OptimizeMemory(void) { SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1); }
+void OptimizeMemory(void) {
+    SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
+}
 
 void SetWindowOverlay(void *windowHandle) {
+    if (!windowHandle) return;
     HWND hwnd = (HWND)windowHandle;
+
+    // WS_EX_TOOLWINDOW hides it from the taskbar without needing complex COM
+    // WS_EX_TOPMOST ensures it stays on top
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
     SetWindowLongPtr(hwnd, GWL_EXSTYLE, style | WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
 
-    const GUID CLSID_TaskbarList = { 0x56a868b1, 0x0ad4, 0x11d0, { 0xb9, 0xa9, 0x00, 0xa0, 0xc9, 0x22, 0x31, 0x96 } };
-    const GUID IID_ITaskbarList = { 0x56a868b1, 0x0ad4, 0x11d0, { 0xb9, 0xa9, 0x00, 0xa0, 0xc9, 0x22, 0x31, 0x96 } };
-
-    void *ptl = NULL;
-    if (SUCCEEDED(CoCreateInstance(&CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, &IID_ITaskbarList, &ptl))) {
-        struct ITaskbarListVtbl {
-            HRESULT(STDMETHODCALLTYPE *QueryInterface)(void *, const GUID *, void **);
-            ULONG(STDMETHODCALLTYPE *AddRef)(void *);
-            ULONG(STDMETHODCALLTYPE *Release)(void *);
-            HRESULT(STDMETHODCALLTYPE *HrInit)(void *);
-            HRESULT(STDMETHODCALLTYPE *AddTab)(void *, HWND);
-            HRESULT(STDMETHODCALLTYPE *DeleteTab)(void *, HWND);
-        } **vtbl = (struct ITaskbarListVtbl **)ptl;
-        (*vtbl)->HrInit(ptl);
-        (*vtbl)->DeleteTab(ptl, hwnd);
-        (*vtbl)->Release(ptl);
-    }
+    // trigger the changes
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 
@@ -93,8 +86,15 @@ void GetGlobalMousePos(void *windowHandle, float *x, float *y) {
     int rx, ry, wx, wy;
     unsigned int mask;
     if (XQueryPointer(display, root, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
-        if (x) *x = (float)rx;
-        if (y) *y = (float)ry;
+        int dx, dy;
+        Window junk;
+        if (windowHandle && XTranslateCoordinates(display, root, (Window)windowHandle, rx, ry, &dx, &dy, &junk)) {
+            if (x) *x = (float)dx;
+            if (y) *y = (float)dy;
+        } else {
+            if (x) *x = (float)rx;
+            if (y) *y = (float)ry;
+        }
     }
     XCloseDisplay(display);
 }

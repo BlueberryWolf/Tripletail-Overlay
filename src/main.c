@@ -92,6 +92,9 @@ int main(void) {
     InitNetwork();
     InitAudioSystem();
     InitUI();
+#ifdef _WIN32
+    SetWindowOverlay(GetWindowHandle());
+#endif
 
     // buffers for the audio juice
     RingBuffer *net_rb = rb_create(128 * 1024);
@@ -113,19 +116,19 @@ int main(void) {
     strcpy(g_state.title, "Connecting...");
 
     while (!WindowShouldClose()) {
+#ifndef _WIN32
         // give the window a moment to breathe on wayland
         static bool overlay_set = false;
         if (!overlay_set) {
             SetWindowOverlay(GetWindowHandle());
             overlay_set = true;
         }
+#endif
 
         // where is the mouse even
         float mx, my;
         GetGlobalMousePos(GetWindowHandle(), &mx, &my);
-        Vector2 winPos = GetWindowPosition();
-        g_state.hovering
-            = CheckCollisionPointCircle((Vector2) { mx - winPos.x, my - winPos.y }, (Vector2) { 460, 50 }, 35);
+        g_state.hovering = CheckCollisionPointCircle((Vector2){mx, my}, (Vector2){460, 50}, 35);
 
         // toggle click-through
         if (g_state.hovering != g_state.last_hover) {
