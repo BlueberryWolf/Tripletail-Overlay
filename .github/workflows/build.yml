@@ -1,0 +1,105 @@
+name: Build Tripletail Overlay
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Build for Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libopusfile-dev \
+            libcurl4-openssl-dev \
+            libx11-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libasound2-dev \
+            mesa-common-dev \
+            libgl1-mesa-dev \
+            pkg-config \
+            gcc \
+            wget
+
+      - name: Install Raylib
+        run: |
+          wget https://github.com/raysan5/raylib/releases/download/5.0/raylib-5.0_linux_amd64.tar.gz
+          tar -xzf raylib-5.0_linux_amd64.tar.gz
+          sudo cp -r raylib-5.0_linux_amd64/include/* /usr/local/include/
+          sudo cp -r raylib-5.0_linux_amd64/lib/* /usr/local/lib/
+          sudo ldconfig
+
+      - name: Build
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tripletail-overlay-linux
+          path: tripletail-overlay
+
+  build-macos:
+    name: Build for macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install raylib opusfile curl pkg-config
+
+      - name: Build
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tripletail-overlay-macos
+          path: tripletail-overlay
+
+  build-windows:
+    name: Build for Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-opusfile
+            mingw-w64-x86_64-curl
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-raylib
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          ./build.bat
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tripletail-overlay-windows
+          path: tripletail-overlay.exe
