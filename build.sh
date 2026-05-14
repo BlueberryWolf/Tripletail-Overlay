@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # pkg-config is the way
-CFLAGS="-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -I./deps/raylib/include -I./deps/kiss_fft -I./deps/stb -I./src $(pkg-config --cflags opusfile curl)"
+CFLAGS="-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -I./deps/raylib/include -I./deps/kiss_fft -I./deps/stb -I./src -I/usr/include/opus $(pkg-config --cflags opusfile curl)"
 LDFLAGS="-L./deps/raylib/lib -flto -Wl,--gc-sections -lraylib -lX11 -lpthread -lm -ldl -lrt $(pkg-config --libs opusfile curl)"
 
 mkdir -p build

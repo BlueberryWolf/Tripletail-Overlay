@@ -82,8 +82,10 @@ bool EnsureSingleInstance(void) {
 }
 
 #else
+#define Font _XFont
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#undef Font
 #include <errno.h>
 #include <fcntl.h>
 #include <malloc.h>
