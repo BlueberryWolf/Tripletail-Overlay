@@ -3,10 +3,14 @@
 
 #include <stdbool.h>
 
-void InitPlatform(void);
-void GetGlobalMousePos(void *windowHandle, float *x, float *y);
-void OptimizeMemory(void);
-void SetWindowOverlay(void *windowHandle);
-bool EnsureSingleInstance(void);
+typedef struct Platform Platform;
+
+Platform *CreatePlatform(void);
+void DestroyPlatform(Platform *p);
+
+void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y);
+void PlatformOptimizeMemory(Platform *p);
+void PlatformSetWindowOverlay(Platform *p, void *windowHandle);
+bool PlatformEnsureSingleInstance(Platform *p);
 
 #endif

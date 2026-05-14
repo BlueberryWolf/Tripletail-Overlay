@@ -13,5 +13,6 @@ size_t rb_read(RingBuffer *rb, uint8_t *data, size_t len);
 size_t rb_read_nonblocking(RingBuffer *rb, uint8_t *data, size_t len);
 void rb_close(RingBuffer *rb);
 int rb_is_closed(RingBuffer *rb);
+size_t rb_available(RingBuffer *rb);
 
 #endif

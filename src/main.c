@@ -25,6 +25,7 @@ Font g_font_reg = { 0 };
 Font g_font_med = { 0 };
 RingBuffer *g_pcm_rb = NULL;
 kiss_fft_cfg g_fft_cfg = NULL;
+Platform *g_platform = NULL;
 
 static uint8_t *g_pending_art_data = NULL;
 static size_t g_pending_art_size = 0;
@@ -68,8 +69,8 @@ static void LoadPendingCoverArt(void) {
 }
 
 int main(void) {
-    if (!EnsureSingleInstance()) return 0;
-    InitPlatform();
+    g_platform = CreatePlatform();
+    if (!PlatformEnsureSingleInstance(g_platform)) return 0;
 
     // window settings
     SetConfigFlags(FLAG_WINDOW_TRANSPARENT | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_UNDECORATED | FLAG_VSYNC_HINT);
@@ -92,8 +93,8 @@ int main(void) {
     InitNetwork();
     InitAudioSystem();
     InitUI();
-#ifdef _WIN32
-    SetWindowOverlay(GetWindowHandle());
+#if defined(_WIN32) || defined(__APPLE__)
+    PlatformSetWindowOverlay(g_platform, GetWindowHandle());
 #else
     SetWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
 #endif
@@ -118,19 +119,21 @@ int main(void) {
     strcpy(g_state.title, "Connecting...");
 
     g_state.last_hover = false;
+    double last_pcm_time = GetTime();
+
     while (!WindowShouldClose()) {
 #ifndef _WIN32
-        // give the window a moment to breathe on wayland
+        // give the window a moment to breathe on wayland/macos
         static bool overlay_set = false;
         if (!overlay_set) {
-            SetWindowOverlay(GetWindowHandle());
+            PlatformSetWindowOverlay(g_platform, GetWindowHandle());
             overlay_set = true;
         }
 #endif
 
         // where is the mouse even
         float mx, my;
-        GetGlobalMousePos(GetWindowHandle(), &mx, &my);
+        PlatformGetMousePos(g_platform, GetWindowHandle(), &mx, &my);
         g_state.hovering = CheckCollisionPointCircle((Vector2) { mx, my }, (Vector2) { 460, 50 }, 35);
 
         // toggle click-through
@@ -188,13 +191,19 @@ int main(void) {
             g_state.duration = meta.duration;
         }
 
+        if (rb_available(g_pcm_rb) > 0) {
+            last_pcm_time = GetTime();
+        } else if (GetTime() - last_pcm_time > 10.0) {
+            last_pcm_time = GetTime();
+        }
+
         LoadPendingCoverArt();
 
         // trim the fat
         static float ram_timer = 0;
         ram_timer += GetFrameTime();
         if (ram_timer > 5.0f) {
-            OptimizeMemory();
+            PlatformOptimizeMemory(g_platform);
             ram_timer = 0;
         }
 
@@ -209,6 +218,7 @@ int main(void) {
     UnloadFont(g_font_med);
     CleanupAudioSystem();
     CleanupNetwork();
+    DestroyPlatform(g_platform);
     CloseWindow();
     return 0;
 }

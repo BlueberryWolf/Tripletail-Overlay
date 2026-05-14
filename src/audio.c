@@ -116,23 +116,30 @@ static int rb_read_cb(void *stream, unsigned char *ptr, int nbytes) {
 
 void *DecodeThread(void *lpParam) {
     RingBuffer *rb = (RingBuffer *)lpParam;
-    OpusFileCallbacks cb = { rb_read_cb, 0, 0, 0 };
-    int err = 0;
-    OggOpusFile *op = op_open_callbacks(rb, &cb, NULL, 0, &err);
-    if (!op) return NULL;
-
-    // decoder loop
     int16_t pcm[4096 * CHANNELS];
+    OpusFileCallbacks cb = { rb_read_cb, 0, 0, 0 };
+
     while (!rb_is_closed(rb)) {
-        int samples = op_read(op, pcm, sizeof(pcm) / sizeof(int16_t), NULL);
-        if (samples <= 0) {
-            if (samples < 0) break;
-            WaitTime(0.01);
+        int err = 0;
+        OggOpusFile *op = op_open_callbacks(rb, &cb, NULL, 0, &err);
+        if (!op) {
+            WaitTime(1.0);
             continue;
         }
-        if (g_pcm_rb) rb_write(g_pcm_rb, (uint8_t *)pcm, samples * CHANNELS * sizeof(int16_t));
+
+        // decoder loop
+        while (!rb_is_closed(rb)) {
+            int samples = op_read(op, pcm, sizeof(pcm) / sizeof(int16_t), NULL);
+            if (samples <= 0) {
+                if (samples < 0) break;
+                WaitTime(0.01);
+                continue;
+            }
+            if (g_pcm_rb) rb_write(g_pcm_rb, (uint8_t *)pcm, samples * CHANNELS * sizeof(int16_t));
+        }
+        op_free(op);
+        if (!rb_is_closed(rb)) WaitTime(0.1);
     }
-    op_free(op);
     return NULL;
 }
 

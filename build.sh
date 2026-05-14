@@ -1,8 +1,22 @@
 #!/bin/bash
 
-# pkg-config is the way
-CFLAGS="-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -I./deps/raylib/include -I./deps/kiss_fft -I./deps/stb -I./src -I/usr/include/opus $(pkg-config --cflags raylib opusfile libcurl)"
-LDFLAGS="-flto -Wl,--gc-sections $(pkg-config --libs raylib opusfile libcurl || echo -lraylib -lopusfile -lcurl) -lX11 -lpthread -lm -ldl -lrt"
+# base flags
+CFLAGS="-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -I./deps/raylib/include -I./deps/kiss_fft -I./deps/stb -I./src"
+LDFLAGS="-flto -Wl,--gc-sections"
+
+# detect os
+OS_NAME=$(uname -s)
+echo "Building for $OS_NAME..."
+
+if [ "$OS_NAME" == "Darwin" ]; then
+    CFLAGS="$CFLAGS $(pkg-config --cflags raylib opusfile libcurl)"
+    LDFLAGS="$LDFLAGS $(pkg-config --libs raylib opusfile libcurl || echo -lraylib -lopusfile -lcurl) -framework AppKit -framework CoreGraphics -framework IOKit -framework AudioToolbox -framework CoreVideo -framework Cocoa"
+    PLATFORM_SRC="src/platform_macos.m"
+else
+    CFLAGS="$CFLAGS -I/usr/include/opus $(pkg-config --cflags raylib opusfile libcurl)"
+    LDFLAGS="$LDFLAGS $(pkg-config --libs raylib opusfile libcurl || echo -lraylib -lopusfile -lcurl) -lX11 -lpthread -lm -ldl -lrt"
+    PLATFORM_SRC="src/platform_linux.c"
+fi
 
 mkdir -p build
 
@@ -19,7 +33,11 @@ echo "Compiling stb_impl..."
 gcc $CFLAGS -c deps/stb/stb_impl.c -o build/stb_impl.o
 
 echo "Compiling platform..."
-gcc $CFLAGS -c src/platform.c -o build/platform.o
+if [[ "$PLATFORM_SRC" == *.m ]]; then
+    clang $CFLAGS -c $PLATFORM_SRC -o build/platform.o
+else
+    gcc $CFLAGS -c $PLATFORM_SRC -o build/platform.o
+fi
 
 echo "Compiling audio..."
 gcc $CFLAGS -c src/audio.c -o build/audio.o

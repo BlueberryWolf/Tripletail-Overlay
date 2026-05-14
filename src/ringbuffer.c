@@ -161,3 +161,11 @@ int rb_is_closed(RingBuffer *rb) {
     if (!rb) return 1;
     return rb->is_closed;
 }
+
+size_t rb_available(RingBuffer *rb) {
+    if (!rb) return 0;
+    pthread_mutex_lock(&rb->mutex);
+    size_t count = rb->count;
+    pthread_mutex_unlock(&rb->mutex);
+    return count;
+}

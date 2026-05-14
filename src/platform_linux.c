@@ -1,0 +1,84 @@
+#include "platform.h"
+#include <raylib.h>
+#include <stdlib.h>
+
+#define Font _XFont
+#include <X11/Xatom.h>
+#include <X11/Xlib.h>
+#undef Font
+#include <errno.h>
+#include <fcntl.h>
+#include <malloc.h>
+#include <sys/file.h>
+#include <unistd.h>
+
+struct Platform {
+    Display *display;
+    int lockFd;
+};
+
+static int X11ErrorHandler(Display *display, XErrorEvent *error) {
+    (void)display;
+    (void)error;
+    return 0;
+}
+
+Platform *CreatePlatform(void) {
+    Platform *p = (Platform *)calloc(1, sizeof(Platform));
+    XSetErrorHandler(X11ErrorHandler);
+    p->display = XOpenDisplay(NULL);
+    p->lockFd = -1;
+    return p;
+}
+
+void DestroyPlatform(Platform *p) {
+    if (p->display) XCloseDisplay(p->display);
+    if (p->lockFd != -1) close(p->lockFd);
+    free(p);
+}
+
+void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y) {
+    if (!p->display) return;
+    Window root = DefaultRootWindow(p->display), child;
+    int rx, ry, wx, wy;
+    unsigned int mask;
+
+    if (XQueryPointer(p->display, root, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
+        Vector2 pos = GetWindowPosition();
+        if (x) *x = (float)rx - pos.x;
+        if (y) *y = (float)ry - pos.y;
+    } else {
+        if (x) *x = -10000.0f;
+        if (y) *y = -10000.0f;
+    }
+}
+
+void PlatformOptimizeMemory(Platform *p) {
+    (void)p;
+    malloc_trim(0);
+}
+
+void PlatformSetWindowOverlay(Platform *p, void *windowHandle) {
+    if (!windowHandle || !p->display) return;
+    Window win = (Window)windowHandle;
+
+    Atom stateAbove = XInternAtom(p->display, "_NET_WM_STATE_ABOVE", False);
+    Atom stateSticky = XInternAtom(p->display, "_NET_WM_STATE_STICKY", False);
+    Atom stateSkipTaskbar = XInternAtom(p->display, "_NET_WM_STATE_SKIP_TASKBAR", False);
+    Atom wmState = XInternAtom(p->display, "_NET_WM_STATE", False);
+
+    Atom atoms[] = { stateAbove, stateSticky, stateSkipTaskbar };
+    XChangeProperty(p->display, win, wmState, XA_ATOM, 32, PropModeReplace, (unsigned char *)atoms, 3);
+    XFlush(p->display);
+}
+
+bool PlatformEnsureSingleInstance(Platform *p) {
+    p->lockFd = open("/tmp/tripletail-overlay.lock", O_CREAT | O_RDWR, 0666);
+    if (p->lockFd < 0) return true;
+    if (flock(p->lockFd, LOCK_EX | LOCK_NB) < 0) {
+        close(p->lockFd);
+        p->lockFd = -1;
+        return false;
+    }
+    return true;
+}
