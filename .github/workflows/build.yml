@@ -20,29 +20,20 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo add-apt-repository -y ppa:texus/raylib
           sudo apt-get update
           sudo apt-get install -y \
+            build-essential \
+            libraylib6-dev \
             libopusfile-dev \
             libcurl4-openssl-dev \
             libx11-dev \
             libxcursor-dev \
-            libxinerama-dev \
             libxrandr-dev \
+            libxinerama-dev \
             libxi-dev \
-            libasound2-dev \
-            mesa-common-dev \
             libgl1-mesa-dev \
-            pkg-config \
-            gcc \
-            wget
-
-      - name: Install Raylib
-        run: |
-          wget https://github.com/raysan5/raylib/releases/download/5.0/raylib-5.0_linux_amd64.tar.gz
-          tar -xzf raylib-5.0_linux_amd64.tar.gz
-          sudo cp -r raylib-5.0_linux_amd64/include/* /usr/local/include/
-          sudo cp -r raylib-5.0_linux_amd64/lib/* /usr/local/lib/
-          sudo ldconfig
+            pkg-config
 
       - name: Build
         run: |
