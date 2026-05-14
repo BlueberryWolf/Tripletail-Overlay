@@ -94,6 +94,8 @@ int main(void) {
     InitUI();
 #ifdef _WIN32
     SetWindowOverlay(GetWindowHandle());
+#else
+    SetWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
 #endif
 
     // buffers for the audio juice
@@ -115,6 +117,7 @@ int main(void) {
     SetAudioStreamVolume(stream, g_state.volume);
     strcpy(g_state.title, "Connecting...");
 
+    g_state.last_hover = false;
     while (!WindowShouldClose()) {
 #ifndef _WIN32
         // give the window a moment to breathe on wayland
@@ -128,7 +131,7 @@ int main(void) {
         // where is the mouse even
         float mx, my;
         GetGlobalMousePos(GetWindowHandle(), &mx, &my);
-        g_state.hovering = CheckCollisionPointCircle((Vector2){mx, my}, (Vector2){460, 50}, 35);
+        g_state.hovering = CheckCollisionPointCircle((Vector2) { mx, my }, (Vector2) { 460, 50 }, 35);
 
         // toggle click-through
         if (g_state.hovering != g_state.last_hover) {

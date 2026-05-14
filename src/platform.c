@@ -33,20 +33,15 @@ void GetGlobalMousePos(void *windowHandle, float *x, float *y) {
     if (y) *y = (float)p.y;
 }
 
-void OptimizeMemory(void) {
-    SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
-}
+void OptimizeMemory(void) { SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1); }
 
 void SetWindowOverlay(void *windowHandle) {
     if (!windowHandle) return;
     HWND hwnd = (HWND)windowHandle;
 
-    // WS_EX_TOOLWINDOW hides it from the taskbar without needing complex COM
-    // WS_EX_TOPMOST ensures it stays on top
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
     SetWindowLongPtr(hwnd, GWL_EXSTYLE, style | WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
 
-    // trigger the changes
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 
@@ -71,51 +66,48 @@ bool EnsureSingleInstance(void) {
 #include <sys/file.h>
 #include <unistd.h>
 
+static Display *g_display = NULL;
+
 static int X11ErrorHandler(Display *display, XErrorEvent *error) {
     (void)display;
     (void)error;
     return 0;
 }
 
-void InitPlatform(void) { XSetErrorHandler(X11ErrorHandler); }
+void InitPlatform(void) {
+    XSetErrorHandler(X11ErrorHandler);
+    g_display = XOpenDisplay(NULL);
+}
 
 void GetGlobalMousePos(void *windowHandle, float *x, float *y) {
-    Display *display = XOpenDisplay(NULL);
-    if (!display) return;
-    Window root = DefaultRootWindow(display), child;
+    if (!g_display) return;
+    Window root = DefaultRootWindow(g_display), child;
     int rx, ry, wx, wy;
     unsigned int mask;
-    if (XQueryPointer(display, root, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
-        int dx, dy;
-        Window junk;
-        if (windowHandle && XTranslateCoordinates(display, root, (Window)windowHandle, rx, ry, &dx, &dy, &junk)) {
-            if (x) *x = (float)dx;
-            if (y) *y = (float)dy;
-        } else {
-            if (x) *x = (float)rx;
-            if (y) *y = (float)ry;
-        }
+
+    if (windowHandle && XQueryPointer(g_display, (Window)windowHandle, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
+        if (x) *x = (float)wx;
+        if (y) *y = (float)wy;
+    } else {
+        if (x) *x = -10000.0f;
+        if (y) *y = -10000.0f;
     }
-    XCloseDisplay(display);
 }
 
 void OptimizeMemory(void) { malloc_trim(0); }
 
 void SetWindowOverlay(void *windowHandle) {
-    if (!windowHandle) return;
-    Display *display = XOpenDisplay(NULL);
-    if (!display) return;
+    if (!windowHandle || !g_display) return;
 
     Window win = (Window)windowHandle;
-    Atom stateAbove = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
-    Atom stateSticky = XInternAtom(display, "_NET_WM_STATE_STICKY", False);
-    Atom stateSkipTaskbar = XInternAtom(display, "_NET_WM_STATE_SKIP_TASKBAR", False);
-    Atom wmState = XInternAtom(display, "_NET_WM_STATE", False);
+    Atom stateAbove = XInternAtom(g_display, "_NET_WM_STATE_ABOVE", False);
+    Atom stateSticky = XInternAtom(g_display, "_NET_WM_STATE_STICKY", False);
+    Atom stateSkipTaskbar = XInternAtom(g_display, "_NET_WM_STATE_SKIP_TASKBAR", False);
+    Atom wmState = XInternAtom(g_display, "_NET_WM_STATE", False);
 
     Atom atoms[] = { stateAbove, stateSticky, stateSkipTaskbar };
-    XChangeProperty(display, win, wmState, XA_ATOM, 32, PropModeReplace, (unsigned char *)atoms, 3);
-    XFlush(display);
-    XCloseDisplay(display);
+    XChangeProperty(g_display, win, wmState, XA_ATOM, 32, PropModeReplace, (unsigned char *)atoms, 3);
+    XFlush(g_display);
 }
 
 bool EnsureSingleInstance(void) {
