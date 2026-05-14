@@ -69,6 +69,7 @@ static void LoadPendingCoverArt(void) {
 
 int main(void) {
     if (!EnsureSingleInstance()) return 0;
+    InitPlatform();
 
     // window settings
     SetConfigFlags(FLAG_WINDOW_TRANSPARENT | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_UNDECORATED | FLAG_VSYNC_HINT);

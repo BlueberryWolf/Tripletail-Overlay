@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+void InitPlatform(void);
 void GetGlobalMousePos(void *windowHandle, float *x, float *y);
 void OptimizeMemory(void);
 void SetWindowOverlay(void *windowHandle);
