@@ -162,7 +162,12 @@ int main(void) {
             // scroll for volume
             float wheel = GetMouseWheelMove();
             if (wheel != 0) {
-                g_state.volume = Clamp(g_state.volume + wheel * 0.05f, 0, 1);
+#ifdef __APPLE__
+                // macos trackpads are crazy sensitive
+                g_state.volume = Clamp(g_state.volume + wheel * 0.005f, 0, 1);
+#else
+                g_state.volume = Clamp(g_state.volume + wheel * 0.015f, 0, 1);
+#endif
                 SetAudioStreamVolume(stream, g_state.volume);
                 FILE *vfs = fopen("volume.txt", "w");
                 if (vfs) {
