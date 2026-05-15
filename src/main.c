@@ -118,18 +118,20 @@ static WindowLayout GetSnapLayout(SnapPos snap, int monW, int monH) {
     return L;
 }
 
-static void ApplySnap(SnapPos snap) {
-    int mon = GetCurrentMonitor();
+static void ApplySnap(SnapPos snap, int monitor) {
+    int mon = (monitor < 0) ? GetCurrentMonitor() : monitor;
     int mw = GetMonitorWidth(mon), mh = GetMonitorHeight(mon);
+    Vector2 mpos = GetMonitorPosition(mon);
     WindowLayout L = GetSnapLayout(snap, mw, mh);
     SetWindowSize(L.w, L.h);
-    SetWindowPosition(L.x, L.y);
+    SetWindowPosition((int)mpos.x + L.x, (int)mpos.y + L.y);
+    g_state.monitor_idx = mon;
 }
 
-static void SaveSnap(SnapPos snap) {
+static void SaveSnap(SnapPos snap, int monitor) {
     FILE *pfs = fopen("position.txt", "w");
     if (pfs) {
-        fprintf(pfs, "%d", (int)snap);
+        fprintf(pfs, "%d %d", (int)snap, monitor);
         fclose(pfs);
     }
 }
@@ -276,13 +278,17 @@ int main(void) {
 
     // load snap position, stick it to the top right
     g_state.snap_pos = SNAP_TOP_RIGHT;
+    g_state.monitor_idx = 0;
     FILE *pfile = fopen("position.txt", "r");
     if (pfile) {
-        int sp = 0;
-        if (fscanf(pfile, "%d", &sp) == 1 && sp >= 0 && sp < SNAP_COUNT) g_state.snap_pos = (SnapPos)sp;
+        int sp = 0, mi = 0;
+        if (fscanf(pfile, "%d %d", &sp, &mi) >= 1) {
+            if (sp >= 0 && sp < SNAP_COUNT) g_state.snap_pos = (SnapPos)sp;
+            if (mi >= 0 && mi < GetMonitorCount()) g_state.monitor_idx = mi;
+        }
         fclose(pfile);
     }
-    ApplySnap(g_state.snap_pos);
+    ApplySnap(g_state.snap_pos, g_state.monitor_idx);
 
     // audio setup
     InitAudioDevice();
@@ -343,6 +349,12 @@ int main(void) {
         float mx, my;
         PlatformGetMousePos(g_platform, GetWindowHandle(), &mx, &my);
 
+#ifdef __linux__
+        Vector2 scale = GetWindowScaleDPI();
+        mx /= scale.x;
+        my /= scale.y;
+#endif
+
         // screen-space mouse position (for drag snapping)
         float gx, gy;
         PlatformGetGlobalMousePos(g_platform, &gx, &gy);
@@ -371,12 +383,28 @@ int main(void) {
             if (!drag_committed && dist > 15.0f) drag_committed = 1;
 
             if (drag_committed) {
+                // find monitor
+                int monCount = GetMonitorCount();
+                int targetMon = 0;
+                for (int i = 0; i < monCount; i++) {
+                    Vector2 mp = GetMonitorPosition(i);
+                    int mw = GetMonitorWidth(i), mh = GetMonitorHeight(i);
+                    if (gx >= mp.x && gx < mp.x + mw && gy >= mp.y && gy < mp.y + mh) {
+                        targetMon = i;
+                        break;
+                    }
+                }
+
+                int mw = GetMonitorWidth(targetMon), mh = GetMonitorHeight(targetMon);
+                Vector2 mp = GetMonitorPosition(targetMon);
+
                 // where do I go
-                drag_preview = SnapFromScreenPos(gx, gy, mw, mh);
+                drag_preview = SnapFromScreenPos(gx - mp.x, gy - mp.y, mw, mh);
                 g_state.drag_snap = drag_preview;
-                if (drag_preview != g_state.snap_pos) {
+
+                if (drag_preview != g_state.snap_pos || targetMon != g_state.monitor_idx) {
                     g_state.snap_pos = drag_preview;
-                    ApplySnap(g_state.snap_pos);
+                    ApplySnap(g_state.snap_pos, targetMon);
                 }
             }
 
@@ -384,7 +412,7 @@ int main(void) {
                 dragging = 0;
                 g_state.drag_snap = -1;
                 if (drag_committed) {
-                    SaveSnap(g_state.snap_pos);
+                    SaveSnap(g_state.snap_pos, g_state.monitor_idx);
                     g_state.status_timer = 2.0f;
                     snprintf(g_state.status_text, sizeof(g_state.status_text), "%s", SnapName(g_state.snap_pos));
                 }

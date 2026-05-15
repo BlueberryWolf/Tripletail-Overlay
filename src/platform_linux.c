@@ -43,9 +43,16 @@ void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y) {
     int rx, ry, wx, wy;
     unsigned int mask;
 
-    if (XQueryPointer(p->display, (Window)windowHandle, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
-        if (x) *x = (float)wx;
-        if (y) *y = (float)wy;
+    if (XQueryPointer(p->display, root, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
+        int tx, ty;
+        Window junk;
+        if (XTranslateCoordinates(p->display, root, (Window)windowHandle, rx, ry, &tx, &ty, &junk)) {
+            if (x) *x = (float)tx;
+            if (y) *y = (float)ty;
+        } else {
+            if (x) *x = (float)wx;
+            if (y) *y = (float)wy;
+        }
     } else {
         if (x) *x = -10000.0f;
         if (y) *y = -10000.0f;

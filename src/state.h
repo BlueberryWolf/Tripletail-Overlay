@@ -44,6 +44,7 @@ typedef struct {
     float status_timer;
     char status_text[32];
     SnapPos snap_pos;
+    int monitor_idx;
     int drag_snap; // -1 = not dragging, else SnapPos of hover zone
 } AppState;
 
