@@ -20,5 +20,6 @@ typedef struct {
 
 int GetLatestMetadata(TrackMetadata *meta);
 uint8_t *DownloadCoverArt(const char *url, size_t *out_size);
+void RequestStreamReconnect(void);
 
 #endif

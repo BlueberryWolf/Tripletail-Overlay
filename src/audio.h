@@ -9,5 +9,6 @@ void CleanupAudioSystem(void);
 void AppAudioCallback(void *bufferData, unsigned int frames);
 void *DecodeThread(void *lpParam);
 float GetBassLevel(void);
+double GetLastAudioTime(void);
 
 #endif

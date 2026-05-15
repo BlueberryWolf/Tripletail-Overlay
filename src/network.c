@@ -17,6 +17,11 @@
 static TrackMetadata g_meta = { "Connecting...", "Tripletail FM", "", 0, 0 };
 static pthread_mutex_t g_meta_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int g_meta_changed = 1;
+static volatile int g_reconnect_requested = 0;
+
+void RequestStreamReconnect(void) {
+    g_reconnect_requested = 1;
+}
 
 void InitNetwork(void) {
     curl_global_init(CURL_GLOBAL_ALL);
@@ -238,6 +243,15 @@ static size_t StreamWriteCallback(void *contents, size_t size, size_t nmemb, voi
     return realsize;
 }
 
+static int StreamProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+    (void)clientp; (void)dltotal; (void)dlnow; (void)ultotal; (void)ulnow;
+    if (g_reconnect_requested) {
+        g_reconnect_requested = 0;
+        return 1;
+    }
+    return 0;
+}
+
 static void *StreamThread(void *lpParam) {
     RingBuffer *rb = (RingBuffer *)lpParam;
     while (!rb_is_closed(rb)) {
@@ -246,14 +260,33 @@ static void *StreamThread(void *lpParam) {
             sleep_ms(1000);
             continue;
         }
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Cache-Control: no-cache");
+        headers = curl_slist_append(headers, "Pragma: no-cache");
+        headers = curl_slist_append(headers, "Icy-MetaData: 0");
+
         curl_easy_setopt(curl, CURLOPT_URL, "https://radio.blueberry.coffee/radio.ogg");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)rb);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Tripletail-Desktop/1.0");
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1000L);
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 15L);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+
+        // progress callback for aborting
+        curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, StreamProgressCallback);
+        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+
         curl_easy_perform(curl);
+        
+        curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
+        
         if (!rb_is_closed(rb)) sleep_ms(1000);
     }
     return NULL;

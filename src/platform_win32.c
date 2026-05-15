@@ -44,6 +44,14 @@ void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y) {
     if (y) *y = (float)pt.y;
 }
 
+void PlatformGetGlobalMousePos(Platform *p, float *x, float *y) {
+    (void)p;
+    POINT pt;
+    GetCursorPos(&pt);
+    if (x) *x = (float)pt.x;
+    if (y) *y = (float)pt.y;
+}
+
 void PlatformOptimizeMemory(Platform *p) {
     (void)p;
     SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);

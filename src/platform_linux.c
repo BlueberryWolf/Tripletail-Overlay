@@ -53,6 +53,20 @@ void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y) {
     }
 }
 
+void PlatformGetGlobalMousePos(Platform *p, float *x, float *y) {
+    if (!p->display) { if (x) *x = 0; if (y) *y = 0; return; }
+    Window root = DefaultRootWindow(p->display), child;
+    int rx, ry, wx, wy;
+    unsigned int mask;
+    if (XQueryPointer(p->display, root, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
+        if (x) *x = (float)rx;
+        if (y) *y = (float)ry;
+    } else {
+        if (x) *x = 0;
+        if (y) *y = 0;
+    }
+}
+
 void PlatformOptimizeMemory(Platform *p) {
     (void)p;
     malloc_trim(0);

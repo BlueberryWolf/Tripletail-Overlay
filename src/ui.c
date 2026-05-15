@@ -1,6 +1,7 @@
 #include "ui.h"
 #include "audio.h"
 #include "raymath.h"
+#include "rlgl.h"
 #include "state.h"
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +32,22 @@ static float SmoothLerp(float current, float target, float speed) {
     float dt = GetFrameTime();
     if (dt > 0.1f) dt = 0.1f;
     return Lerp(current, target, 1.0f - expf(-speed * 20.0f * dt));
+}
+
+// returns 1 if snap is a side (vertical) orientation
+static int SnapIsSide(SnapPos snap) {
+    return snap == SNAP_LEFT_TOP    || snap == SNAP_LEFT_CENTER  || snap == SNAP_LEFT_BOTTOM ||
+           snap == SNAP_RIGHT_TOP   || snap == SNAP_RIGHT_CENTER || snap == SNAP_RIGHT_BOTTOM;
+}
+
+// returns 1 if snap is on the bottom half
+static int SnapIsBottom(SnapPos snap) {
+    return snap == SNAP_BOTTOM_LEFT || snap == SNAP_BOTTOM_CENTER || snap == SNAP_BOTTOM_RIGHT;
+}
+
+// returns 1 if snap is on the right side
+static int SnapIsRight(SnapPos snap) {
+    return snap == SNAP_RIGHT_TOP || snap == SNAP_RIGHT_CENTER || snap == SNAP_RIGHT_BOTTOM;
 }
 
 void InitUI(void) {
@@ -77,27 +94,37 @@ void UpdateUIState(void) {
     if (g_state.status_timer > 0.0f) g_state.status_timer -= GetFrameTime() * 1.5f;
 }
 
-void DrawUI(void) {
-    BeginDrawing();
-    ClearBackground(BLANK);
-
+static void DrawScene(void) {
     float anchorX = 460.0f, anchorY = 50.0f, visW = 480.0f;
     float barSpacing = visW / VIS_BARS;
     Color cPink = { 236, 72, 153, 200 }, cPurple = { 139, 92, 246, 200 };
+    int isBottom = SnapIsBottom(g_state.snap_pos);
 
     // progress bar line at the top
-    DrawRectangle(0, 0, 500, 3, (Color) { 168, 85, 247, 40 });
-    int progW = (int)(500.0f * g_state.progress_lerp);
-    DrawRectangleGradientH(0, 0, progW, 3, cPink,
-                           (Color) { (unsigned char)Lerp(cPink.r, cPurple.r, g_state.progress_lerp),
-                                     (unsigned char)Lerp(cPink.g, cPurple.g, g_state.progress_lerp),
-                                     (unsigned char)Lerp(cPink.b, cPurple.b, g_state.progress_lerp), 200 });
+    if (!isBottom) {
+        DrawRectangle(0, 0, 500, 3, (Color){ 168, 85, 247, 40 });
+        int progW = (int)(500.0f * g_state.progress_lerp);
+        DrawRectangleGradientH(0, 0, progW, 3, cPink,
+                               (Color){ (unsigned char)Lerp(cPink.r, cPurple.r, g_state.progress_lerp),
+                                        (unsigned char)Lerp(cPink.g, cPurple.g, g_state.progress_lerp),
+                                        (unsigned char)Lerp(cPink.b, cPurple.b, g_state.progress_lerp), 200 });
+    } else {
+        DrawRectangle(0, 147, 500, 3, (Color){ 168, 85, 247, 40 });
+        int progW = (int)(500.0f * g_state.progress_lerp);
+        DrawRectangleGradientH(0, 147, progW, 3, cPink,
+                               (Color){ (unsigned char)Lerp(cPink.r, cPurple.r, g_state.progress_lerp),
+                                        (unsigned char)Lerp(cPink.g, cPurple.g, g_state.progress_lerp),
+                                        (unsigned char)Lerp(cPink.b, cPurple.b, g_state.progress_lerp), 200 });
+    }
 
-    // visualizer bars doing visualizer things
+    // visualizer bars. top snaps go downward, bottom snaps grow upward, sides are flipped so bass is at top
+    int isLeft = (g_state.snap_pos == SNAP_LEFT_TOP || g_state.snap_pos == SNAP_LEFT_CENTER || g_state.snap_pos == SNAP_LEFT_BOTTOM);
     pthread_mutex_lock(&g_vis.mutex);
     for (int i = 0; i < VIS_BARS; i++) {
-        float mag = Clamp(g_vis.bins[i], 0, 100);
-        g_vis.trail[i] = Lerp(g_vis.trail[i], mag, 0.4f);
+        // left wall. reverse to put bass at top
+        int bi = isLeft ? (VIS_BARS - 1 - i) : i;
+        float mag = Clamp(g_vis.bins[bi], 0, 100);
+        g_vis.trail[bi] = Lerp(g_vis.trail[bi], mag, 0.4f);
 
         int bx = (int)(i * barSpacing), bw = (int)((i + 1) * barSpacing) - bx - 1;
         float t = (float)i / (VIS_BARS - 1);
@@ -105,9 +132,18 @@ void DrawUI(void) {
         Color bCol = { (unsigned char)Lerp(cPink.r, cPurple.r, t), (unsigned char)Lerp(cPink.g, cPurple.g, t),
                        (unsigned char)Lerp(cPink.b, cPurple.b, t), a };
 
-        DrawRectangle(bx, 3, bw < 1 ? 1 : bw, (int)mag, (Color) { bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.6f) });
-        DrawRectangleGradientV(bx, 3, bw < 1 ? 1 : bw, (int)mag, bCol,
-                               (Color) { bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.3f) });
+        if (!isBottom) {
+            // normal. bars grow downward from y=3
+            DrawRectangle(bx, 3, bw < 1 ? 1 : bw, (int)mag, (Color){ bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.6f) });
+            DrawRectangleGradientV(bx, 3, bw < 1 ? 1 : bw, (int)mag, bCol,
+                                   (Color){ bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.3f) });
+        } else {
+            // bottom. bars grow upward from y=147
+            int by = 147 - (int)mag;
+            DrawRectangle(bx, by, bw < 1 ? 1 : bw, (int)mag, (Color){ bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.6f) });
+            DrawRectangleGradientV(bx, by, bw < 1 ? 1 : bw, (int)mag,
+                                   (Color){ bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.3f) }, bCol);
+        }
     }
     pthread_mutex_unlock(&g_vis.mutex);
 
@@ -118,33 +154,35 @@ void DrawUI(void) {
 
         // cover art with a metric ton of shadows
         if (g_cover_art.id != 0) {
-            DrawRectangle(fX + 16, anchorY - 24, 72, 72, (Color) { 0, 0, 0, (unsigned char)(a8 * 0.2f) });
-            DrawRectangle(fX + 14, anchorY - 26, 72, 72, (Color) { 0, 0, 0, (unsigned char)(a8 * 0.35f) });
-            DrawRectangle(fX + 12, anchorY - 28, 72, 72, (Color) { 0, 0, 0, (unsigned char)(a8 * 0.5f) });
-            DrawTexturePro(g_cover_art, (Rectangle) { 0, 0, (float)g_cover_art.width, (float)g_cover_art.height },
-                           (Rectangle) { fX + 8, anchorY - 32, 72, 72 }, (Vector2) { 0, 0 }, 0.0f,
-                           (Color) { 255, 255, 255, a8 });
+            DrawRectangle(fX + 16, anchorY - 24, 72, 72, (Color){ 0, 0, 0, (unsigned char)(a8 * 0.2f) });
+            DrawRectangle(fX + 14, anchorY - 26, 72, 72, (Color){ 0, 0, 0, (unsigned char)(a8 * 0.35f) });
+            DrawRectangle(fX + 12, anchorY - 28, 72, 72, (Color){ 0, 0, 0, (unsigned char)(a8 * 0.5f) });
+            DrawTexturePro(g_cover_art, (Rectangle){ 0, 0, (float)g_cover_art.width, (float)g_cover_art.height },
+                           (Rectangle){ fX + 8, anchorY - 32, 72, 72 }, (Vector2){ 0, 0 }, 0.0f,
+                           (Color){ 255, 255, 255, a8 });
         }
 
-        BeginScissorMode((int)fX + 85, (int)anchorY - 60, 400, 150);
+        // scissor clips text to the flyout area
+        int usesScissor = !SnapIsSide(g_state.snap_pos);
+        if (usesScissor) BeginScissorMode((int)fX + 85, (int)anchorY - 60, 400, 150);
 
         // shadow colors
         Color sh1 = { 0, 0, 0, (unsigned char)(a8 * 0.3f) }, sh2 = { 0, 0, 0, (unsigned char)(a8 * 0.5f) },
               sh3 = { 0, 0, 0, (unsigned char)(a8 * 0.7f) };
 
         // title
-        DrawTextEx(g_font_med, g_state.title, (Vector2) { fX + 93, anchorY - 30 }, 26, 0, sh1);
-        DrawTextEx(g_font_med, g_state.title, (Vector2) { fX + 92, anchorY - 31 }, 26, 0, sh2);
-        DrawTextEx(g_font_med, g_state.title, (Vector2) { fX + 91, anchorY - 32 }, 26, 0, sh3);
-        DrawTextEx(g_font_med, g_state.title, (Vector2) { fX + 90, anchorY - 33 }, 26, 0,
-                   (Color) { 255, 255, 255, a8 });
+        DrawTextEx(g_font_med, g_state.title, (Vector2){ fX + 93, anchorY - 30 }, 26, 0, sh1);
+        DrawTextEx(g_font_med, g_state.title, (Vector2){ fX + 92, anchorY - 31 }, 26, 0, sh2);
+        DrawTextEx(g_font_med, g_state.title, (Vector2){ fX + 91, anchorY - 32 }, 26, 0, sh3);
+        DrawTextEx(g_font_med, g_state.title, (Vector2){ fX + 90, anchorY - 33 }, 26, 0,
+                   (Color){ 255, 255, 255, a8 });
 
         // artist
-        DrawTextEx(g_font_reg, g_state.artist, (Vector2) { fX + 93, anchorY - 1 }, 20, 0, sh1);
-        DrawTextEx(g_font_reg, g_state.artist, (Vector2) { fX + 92, anchorY - 2 }, 20, 0, sh2);
-        DrawTextEx(g_font_reg, g_state.artist, (Vector2) { fX + 91, anchorY - 3 }, 20, 0, sh3);
-        DrawTextEx(g_font_reg, g_state.artist, (Vector2) { fX + 90, anchorY - 4 }, 20, 0,
-                   (Color) { 200, 200, 200, a8 });
+        DrawTextEx(g_font_reg, g_state.artist, (Vector2){ fX + 93, anchorY - 1 }, 20, 0, sh1);
+        DrawTextEx(g_font_reg, g_state.artist, (Vector2){ fX + 92, anchorY - 2 }, 20, 0, sh2);
+        DrawTextEx(g_font_reg, g_state.artist, (Vector2){ fX + 91, anchorY - 3 }, 20, 0, sh3);
+        DrawTextEx(g_font_reg, g_state.artist, (Vector2){ fX + 90, anchorY - 4 }, 20, 0,
+                   (Color){ 200, 200, 200, a8 });
 
         char timeStr[64];
         char eStr[16], dStr[16];
@@ -156,19 +194,19 @@ void DrawUI(void) {
         DrawTextFixed(g_font_reg, timeStr, (int)fX + 93, (int)anchorY + 28, 16, sh1);
         DrawTextFixed(g_font_reg, timeStr, (int)fX + 92, (int)anchorY + 27, 16, sh2);
         DrawTextFixed(g_font_reg, timeStr, (int)fX + 91, (int)anchorY + 26, 16, sh3);
-        DrawTextFixed(g_font_reg, timeStr, (int)fX + 90, (int)anchorY + 25, 16, (Color) { 150, 150, 150, a8 });
+        DrawTextFixed(g_font_reg, timeStr, (int)fX + 90, (int)anchorY + 25, 16, (Color){ 150, 150, 150, a8 });
 
         if (g_state.hovering || g_state.show_mode == 1) {
             char vT[32];
             snprintf(vT, sizeof(vT), "vol: %d%%", (int)(g_state.volume * 100));
             if (g_state.show_mode == 1) strcat(vT, " [pin]");
-            DrawTextEx(g_font_reg, vT, (Vector2) { fX + 93, anchorY + 50 }, 14, 0, sh1);
-            DrawTextEx(g_font_reg, vT, (Vector2) { fX + 92, anchorY + 49 }, 14, 0, sh2);
-            DrawTextEx(g_font_reg, vT, (Vector2) { fX + 91, anchorY + 48 }, 14, 0, sh3);
-            DrawTextEx(g_font_reg, vT, (Vector2) { fX + 90, anchorY + 47 }, 14, 0,
-                       (Color) { 168, 85, 247, (unsigned char)(a8 * 0.8f) });
+            DrawTextEx(g_font_reg, vT, (Vector2){ fX + 93, anchorY + 50 }, 14, 0, sh1);
+            DrawTextEx(g_font_reg, vT, (Vector2){ fX + 92, anchorY + 49 }, 14, 0, sh2);
+            DrawTextEx(g_font_reg, vT, (Vector2){ fX + 91, anchorY + 48 }, 14, 0, sh3);
+            DrawTextEx(g_font_reg, vT, (Vector2){ fX + 90, anchorY + 47 }, 14, 0,
+                       (Color){ 168, 85, 247, (unsigned char)(a8 * 0.8f) });
         }
-        EndScissorMode();
+        if (usesScissor) EndScissorMode();
     }
 
     // floating tooltip for mode changes
@@ -181,14 +219,14 @@ void DrawUI(void) {
         Color tsh1 = { 0, 0, 0, (unsigned char)(alpha * 80) }, tsh2 = { 0, 0, 0, (unsigned char)(alpha * 150) },
               tsh3 = { 0, 0, 0, (unsigned char)(alpha * 200) };
 
-        DrawTextEx(g_font_med, g_state.status_text, (Vector2) { anchorX - tsize.x / 2 + 3, anchorY + 50 + offset + 3 },
+        DrawTextEx(g_font_med, g_state.status_text, (Vector2){ anchorX - tsize.x / 2 + 3, anchorY + 50 + offset + 3 },
                    16, 0, tsh1);
-        DrawTextEx(g_font_med, g_state.status_text, (Vector2) { anchorX - tsize.x / 2 + 2, anchorY + 50 + offset + 2 },
+        DrawTextEx(g_font_med, g_state.status_text, (Vector2){ anchorX - tsize.x / 2 + 2, anchorY + 50 + offset + 2 },
                    16, 0, tsh2);
-        DrawTextEx(g_font_med, g_state.status_text, (Vector2) { anchorX - tsize.x / 2 + 1, anchorY + 50 + offset + 1 },
+        DrawTextEx(g_font_med, g_state.status_text, (Vector2){ anchorX - tsize.x / 2 + 1, anchorY + 50 + offset + 1 },
                    16, 0, tsh3);
-        DrawTextEx(g_font_med, g_state.status_text, (Vector2) { anchorX - tsize.x / 2, anchorY + 50 + offset }, 16, 0,
-                   (Color) { 255, 255, 255, a });
+        DrawTextEx(g_font_med, g_state.status_text, (Vector2){ anchorX - tsize.x / 2, anchorY + 50 + offset }, 16, 0,
+                   (Color){ 255, 255, 255, a });
     }
 
     // bouncy tail :3
@@ -198,10 +236,51 @@ void DrawUI(void) {
     float dW = g_tail_icon.width * tScale, dH = g_tail_icon.height * tScale;
 
     DrawCircleGradient((int)anchorX, (int)anchorY, 45 + (g_state.hover_alpha * 10),
-                       (Color) { 168, 85, 247, (unsigned char)(30 + 30 * g_state.hover_alpha) }, BLANK);
-    DrawTexturePro(g_tail_icon, (Rectangle) { 0, 0, (float)g_tail_icon.width, (float)g_tail_icon.height },
-                   (Rectangle) { anchorX, anchorY - tail_bounce, dW, dH }, (Vector2) { dW / 2.0f, dH / 2.0f },
+                       (Color){ 168, 85, 247, (unsigned char)(30 + 30 * g_state.hover_alpha) }, BLANK);
+    DrawTexturePro(g_tail_icon, (Rectangle){ 0, 0, (float)g_tail_icon.width, (float)g_tail_icon.height },
+                   (Rectangle){ anchorX, anchorY - tail_bounce, dW, dH }, (Vector2){ dW / 2.0f, dH / 2.0f },
                    tail_bounce * 0.6f, WHITE);
+}
+
+void DrawUI(void) {
+    BeginDrawing();
+    ClearBackground(BLANK);
+
+    int isSide = SnapIsSide(g_state.snap_pos);
+    int isRight = SnapIsRight(g_state.snap_pos);
+
+    if (isSide) {
+        rlPushMatrix();
+        if (!isRight) {
+            rlTranslatef(0.0f, 500.0f, 0.0f);
+            rlRotatef(-90.0f, 0.0f, 0.0f, 1.0f);
+        } else {
+            rlTranslatef(150.0f, 0.0f, 0.0f);
+            rlRotatef(90.0f, 0.0f, 0.0f, 1.0f);
+        }
+        DrawScene();
+        rlPopMatrix();
+    } else {
+        DrawScene();
+    }
+
+    // drag indicator
+    if (g_state.drag_snap >= 0) {
+        float tx, ty;
+        switch (g_state.snap_pos) {
+            case SNAP_LEFT_TOP: case SNAP_LEFT_CENTER: case SNAP_LEFT_BOTTOM:
+                tx = 50.0f; ty = 40.0f; break;
+            case SNAP_RIGHT_TOP: case SNAP_RIGHT_CENTER: case SNAP_RIGHT_BOTTOM:
+                tx = 100.0f; ty = 460.0f; break;
+            default: // default: top and bottom
+                tx = 460.0f; ty = 50.0f; break;
+        }
+        float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 8.0f);
+        float r = 38.0f + pulse * 8.0f;
+        unsigned char a = (unsigned char)(120 + pulse * 100);
+        DrawCircleLinesV((Vector2){ tx, ty }, r, (Color){ 236, 72, 153, a });
+        DrawCircleLinesV((Vector2){ tx, ty }, r - 3.0f, (Color){ 139, 92, 246, (unsigned char)(a * 0.6f) });
+    }
 
     EndDrawing();
 }

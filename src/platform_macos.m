@@ -39,6 +39,15 @@ void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y) {
     if (y) *y = (float)(screenHeight - mousePos.y) - windowPos.y;
 }
 
+void PlatformGetGlobalMousePos(Platform *p, float *x, float *y) {
+    (void)p;
+    NSPoint mousePos = [NSEvent mouseLocation];
+    NSScreen *mainScreen = [NSScreen mainScreen];
+    float screenHeight = mainScreen.frame.size.height;
+    if (x) *x = (float)mousePos.x;
+    if (y) *y = (float)(screenHeight - mousePos.y);
+}
+
 void PlatformOptimizeMemory(Platform *p) {
     (void)p;
     malloc_zone_pressure_relief(NULL, 0);

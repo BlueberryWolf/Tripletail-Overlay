@@ -1,6 +1,22 @@
 #ifndef STATE_H
 #define STATE_H
 
+typedef enum {
+    SNAP_TOP_RIGHT = 0,
+    SNAP_TOP_LEFT,
+    SNAP_TOP_CENTER,
+    SNAP_RIGHT_TOP,
+    SNAP_RIGHT_CENTER,
+    SNAP_RIGHT_BOTTOM,
+    SNAP_LEFT_TOP,
+    SNAP_LEFT_CENTER,
+    SNAP_LEFT_BOTTOM,
+    SNAP_BOTTOM_RIGHT,
+    SNAP_BOTTOM_LEFT,
+    SNAP_BOTTOM_CENTER,
+    SNAP_COUNT
+} SnapPos;
+
 #include "kiss_fft.h"
 #include "raylib.h"
 #include "ringbuffer.h"
@@ -27,6 +43,8 @@ typedef struct {
     int last_hover;
     float status_timer;
     char status_text[32];
+    SnapPos snap_pos;
+    int drag_snap; // -1 = not dragging, else SnapPos of hover zone
 } AppState;
 
 typedef struct {
