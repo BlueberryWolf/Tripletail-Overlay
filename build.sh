@@ -12,11 +12,15 @@ echo "Building for $OS_NAME..."
 if [ "$OS_NAME" == "Darwin" ]; then
     CFLAGS="$CFLAGS $(pkg-config --cflags raylib opusfile libcurl)"
     CFLAGS="$CFLAGS -I$(pkg-config --variable=includedir opusfile | sed 's/\/opus$//')"
-    LDFLAGS="$LDFLAGS -Wl,-dead_strip $(pkg-config --libs raylib opusfile libcurl || echo -lraylib -lopusfile -lcurl) -framework AppKit -framework CoreGraphics -framework IOKit -framework AudioToolbox -framework CoreVideo -framework Cocoa"
+    RAYLIB_STATIC=$(pkg-config --libs --static raylib 2>/dev/null || echo "-lraylib")
+    OPUS_STATIC=$(pkg-config --libs --static opusfile 2>/dev/null || echo "-lopusfile -lopus -logg")
+    LDFLAGS="$LDFLAGS -Wl,-dead_strip $RAYLIB_STATIC $OPUS_STATIC -lcurl -framework AppKit -framework CoreGraphics -framework IOKit -framework AudioToolbox -framework CoreVideo -framework Cocoa"
     PLATFORM_SRC="src/platform_macos.m"
 else
     CFLAGS="$CFLAGS -I/usr/include/opus $(pkg-config --cflags raylib opusfile libcurl)"
-    LDFLAGS="$LDFLAGS -Wl,--gc-sections $(pkg-config --libs raylib opusfile libcurl || echo -lraylib -lopusfile -lcurl) -lX11 -lpthread -lm -ldl -lrt"
+    RAYLIB_STATIC=$(pkg-config --libs --static raylib 2>/dev/null || echo "-lraylib -lX11 -lXcursor -lXinerama -lXi -lXrandr -lGL")
+    OTHER_LIBS=$(pkg-config --libs opusfile libcurl || echo "-lopusfile -lcurl")
+    LDFLAGS="$LDFLAGS -Wl,--gc-sections $RAYLIB_STATIC $OTHER_LIBS -lpthread -lm -ldl -lrt"
     PLATFORM_SRC="src/platform_linux.c"
 fi
 

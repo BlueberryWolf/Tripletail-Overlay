@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 :: kill it if it's running so we can actually link
 taskkill /f /im tripletail-overlay.exe >nul 2>nul
 
-set CFLAGS=-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -ffunction-sections -fdata-sections -I.\deps\raylib\include -I.\deps\kiss_fft -I.\deps\stb -I.\src
+set CFLAGS=-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -DCURL_STATICLIB -ffunction-sections -fdata-sections -I.\deps\raylib\include -I.\deps\kiss_fft -I.\deps\stb -I.\src
 set LDFLAGS=-L.\deps\raylib\lib -flto -Wl,--gc-sections -s -mwindows -lraylib -lgdi32 -lwinmm -lole32 -loleaut32 -luuid -lpsapi -lm
 
 :: check if pkg-config actually works for our packages
@@ -17,7 +17,7 @@ if %ERRORLEVEL% EQU 0 (
 
 if !USE_PKG! EQU 1 (
     for /f "tokens=*" %%i in ('pkg-config --cflags opusfile libcurl') do set PKG_CFLAGS=%%i
-    for /f "tokens=*" %%i in ('pkg-config --libs opusfile libcurl') do set PKG_LDFLAGS=%%i
+    for /f "tokens=*" %%i in ('pkg-config --static --libs opusfile libcurl') do set PKG_LDFLAGS=%%i
     set CFLAGS=%CFLAGS% !PKG_CFLAGS!
     set LDFLAGS=%LDFLAGS% !PKG_LDFLAGS!
 ) else (
