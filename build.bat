@@ -28,6 +28,7 @@ if exist "C:\msys64\mingw64\include\opus" (
 )
 
 :START_BUILD
+if exist build rd /s /q build
 if not exist build mkdir build
 
 echo Compiling KissFFT, STB, and Core Source...

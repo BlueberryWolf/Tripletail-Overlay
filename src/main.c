@@ -239,6 +239,14 @@ static void *DownloadCoverArtThread(void *arg) {
     return NULL;
 }
 
+typedef struct {
+    TrackMetadata meta;
+    double ready_time;
+    int active;
+} PendingMetadata;
+
+static PendingMetadata g_pending_meta = { 0 };
+
 static void LoadPendingCoverArt(void) {
     pthread_mutex_lock(&g_art_mutex);
     if (g_pending_art_data) {
@@ -258,6 +266,25 @@ static void LoadPendingCoverArt(void) {
         g_pending_art_data = NULL;
     }
     pthread_mutex_unlock(&g_art_mutex);
+}
+
+static void ApplyMetadata(TrackMetadata *meta) {
+    if (strcmp(meta->title, g_state.title) != 0 && strlen(meta->title) > 0) {
+        strcpy(g_state.title, meta->title);
+        strcpy(g_state.artist, meta->artist);
+        g_state.popup_timer = 10.0f;
+        g_state.elapsed = (float)meta->elapsed;
+        g_state.progress_lerp = 0.0f;
+        if (strcmp(meta->art_url, g_state.art_url) != 0 && strlen(meta->art_url) > 0) {
+            strcpy(g_state.art_url, meta->art_url);
+            pthread_t tid;
+            pthread_create(&tid, NULL, DownloadCoverArtThread, strdup(meta->art_url));
+            pthread_detach(tid);
+        }
+    } else if (fabs(g_state.elapsed - (float)meta->elapsed) > 2.0f) {
+        g_state.elapsed = (float)meta->elapsed;
+    }
+    g_state.duration = meta->duration;
 }
 
 int main(void) {
@@ -460,24 +487,25 @@ int main(void) {
         }
 
         // track checking
-        TrackMetadata meta;
-        if (GetLatestMetadata(&meta)) {
-            if (strcmp(meta.title, g_state.title) != 0 && strlen(meta.title) > 0) {
-                strcpy(g_state.title, meta.title);
-                strcpy(g_state.artist, meta.artist);
-                g_state.popup_timer = 10.0f;
-                g_state.elapsed = (float)meta.elapsed;
-                g_state.progress_lerp = 0.0f;
-                if (strcmp(meta.art_url, g_state.art_url) != 0 && strlen(meta.art_url) > 0) {
-                    strcpy(g_state.art_url, meta.art_url);
-                    pthread_t tid;
-                    pthread_create(&tid, NULL, DownloadCoverArtThread, strdup(meta.art_url));
-                    pthread_detach(tid);
-                }
-            } else if (fabs(g_state.elapsed - (float)meta.elapsed) > 2.0f) {
-                g_state.elapsed = (float)meta.elapsed;
+        TrackMetadata new_meta;
+        if (GetLatestMetadata(&new_meta)) {
+            // calculate current audio delay
+            double pcm_delay = (double)rb_available(g_pcm_rb) / (SAMPLE_RATE * CHANNELS * sizeof(int16_t));
+            double net_delay = (double)rb_available(net_rb) / 16384.0; // estimate at 128kbps
+
+            g_pending_meta.meta = new_meta;
+            g_pending_meta.ready_time = GetTime() + pcm_delay + net_delay;
+            g_pending_meta.active = 1;
+
+            // if it's the very first update (title is still Connecting...), skip the delay
+            if (strcmp(g_state.title, "Connecting...") == 0) {
+                g_pending_meta.ready_time = GetTime();
             }
-            g_state.duration = meta.duration;
+        }
+
+        if (g_pending_meta.active && GetTime() >= g_pending_meta.ready_time) {
+            ApplyMetadata(&g_pending_meta.meta);
+            g_pending_meta.active = 0;
         }
 
         // if no audio for 10s, kick the stream
