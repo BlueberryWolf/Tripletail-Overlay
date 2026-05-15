@@ -24,7 +24,7 @@ if [ "$OS_NAME" == "Darwin" ]; then
     LDFLAGS="$LDFLAGS -Wl,-dead_strip $RAYLIB_STATIC $OPUS_STATIC -lcurl -framework AppKit -framework CoreGraphics -framework IOKit -framework AudioToolbox -framework CoreVideo -framework Cocoa"
     PLATFORM_SRC="src/platform_macos.m"
 else
-    curl https://github.com/raysan5/raylib/releases/download/6.0/raylib-6.0_linux_i386.tar.gz -L -O
+    curl https://github.com/raysan5/raylib/releases/download/6.0/raylib-6.0_linux_amd64.tar.gz -L -O
     tar -xzf raylib-6.0_linux_i386.tar.gz
 
     CFLAGS="$CFLAGS -I/usr/include/opus $(pkg-config --cflags raylib opusfile libcurl)"
