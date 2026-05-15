@@ -108,7 +108,7 @@ void AppAudioCallback(void *bufferData, unsigned int frames) {
     // smooth the bass for the tail animation
     float current_vol = (vol_sum / samples) * 4.0f;
     if (current_vol > 0.001f) g_last_audio_time = GetTime();
-    
+
     if (current_vol > 1.5f) current_vol = 1.5f;
     g_bass_smooth = g_bass_smooth * 0.85f + current_vol * 0.15f;
 }

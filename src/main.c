@@ -29,24 +29,91 @@ Platform *g_platform = NULL;
 
 // snap helpers
 
-typedef struct { int w, h, x, y; } WindowLayout;
+typedef struct {
+    int w, h, x, y;
+} WindowLayout;
 
 static WindowLayout GetSnapLayout(SnapPos snap, int monW, int monH) {
-    WindowLayout L = {0};
+    WindowLayout L = { 0 };
     switch (snap) {
-        case SNAP_TOP_RIGHT:     L.w=500; L.h=150; L.x=monW-500;      L.y=0;            break;
-        case SNAP_TOP_LEFT:      L.w=500; L.h=150; L.x=0;             L.y=0;            break;
-        case SNAP_TOP_CENTER:    L.w=500; L.h=150; L.x=(monW-500)/2;  L.y=0;            break;
-        case SNAP_RIGHT_TOP:     L.w=150; L.h=500; L.x=monW-150;      L.y=0;            break;
-        case SNAP_RIGHT_CENTER:  L.w=150; L.h=500; L.x=monW-150;      L.y=(monH-500)/2; break;
-        case SNAP_RIGHT_BOTTOM:  L.w=150; L.h=500; L.x=monW-150;      L.y=monH-500;     break;
-        case SNAP_LEFT_TOP:      L.w=150; L.h=500; L.x=0;             L.y=0;            break;
-        case SNAP_LEFT_CENTER:   L.w=150; L.h=500; L.x=0;             L.y=(monH-500)/2; break;
-        case SNAP_LEFT_BOTTOM:   L.w=150; L.h=500; L.x=0;             L.y=monH-500;     break;
-        case SNAP_BOTTOM_RIGHT:  L.w=500; L.h=150; L.x=monW-500;      L.y=monH-150;     break;
-        case SNAP_BOTTOM_LEFT:   L.w=500; L.h=150; L.x=0;             L.y=monH-150;     break;
-        case SNAP_BOTTOM_CENTER: L.w=500; L.h=150; L.x=(monW-500)/2;  L.y=monH-150;     break;
-        default:                 L.w=500; L.h=150; L.x=monW-500;      L.y=0;            break;
+    case SNAP_TOP_RIGHT:
+        L.w = 500;
+        L.h = 150;
+        L.x = monW - 500;
+        L.y = 0;
+        break;
+    case SNAP_TOP_LEFT:
+        L.w = 500;
+        L.h = 150;
+        L.x = 0;
+        L.y = 0;
+        break;
+    case SNAP_TOP_CENTER:
+        L.w = 500;
+        L.h = 150;
+        L.x = (monW - 500) / 2;
+        L.y = 0;
+        break;
+    case SNAP_RIGHT_TOP:
+        L.w = 150;
+        L.h = 500;
+        L.x = monW - 150;
+        L.y = 0;
+        break;
+    case SNAP_RIGHT_CENTER:
+        L.w = 150;
+        L.h = 500;
+        L.x = monW - 150;
+        L.y = (monH - 500) / 2;
+        break;
+    case SNAP_RIGHT_BOTTOM:
+        L.w = 150;
+        L.h = 500;
+        L.x = monW - 150;
+        L.y = monH - 500;
+        break;
+    case SNAP_LEFT_TOP:
+        L.w = 150;
+        L.h = 500;
+        L.x = 0;
+        L.y = 0;
+        break;
+    case SNAP_LEFT_CENTER:
+        L.w = 150;
+        L.h = 500;
+        L.x = 0;
+        L.y = (monH - 500) / 2;
+        break;
+    case SNAP_LEFT_BOTTOM:
+        L.w = 150;
+        L.h = 500;
+        L.x = 0;
+        L.y = monH - 500;
+        break;
+    case SNAP_BOTTOM_RIGHT:
+        L.w = 500;
+        L.h = 150;
+        L.x = monW - 500;
+        L.y = monH - 150;
+        break;
+    case SNAP_BOTTOM_LEFT:
+        L.w = 500;
+        L.h = 150;
+        L.x = 0;
+        L.y = monH - 150;
+        break;
+    case SNAP_BOTTOM_CENTER:
+        L.w = 500;
+        L.h = 150;
+        L.x = (monW - 500) / 2;
+        L.y = monH - 150;
+        break;
+    default:
+        L.w = 500;
+        L.h = 150;
+        L.x = monW - 500;
+        L.y = 0;
+        break;
     }
     return L;
 }
@@ -61,40 +128,56 @@ static void ApplySnap(SnapPos snap) {
 
 static void SaveSnap(SnapPos snap) {
     FILE *pfs = fopen("position.txt", "w");
-    if (pfs) { fprintf(pfs, "%d", (int)snap); fclose(pfs); }
+    if (pfs) {
+        fprintf(pfs, "%d", (int)snap);
+        fclose(pfs);
+    }
 }
 
 static const char *SnapName(SnapPos snap) {
     switch (snap) {
-        case SNAP_TOP_RIGHT:     return "top-right";
-        case SNAP_TOP_LEFT:      return "top-left";
-        case SNAP_TOP_CENTER:    return "top-center";
-        case SNAP_RIGHT_TOP:     return "right-top";
-        case SNAP_RIGHT_CENTER:  return "right-center";
-        case SNAP_RIGHT_BOTTOM:  return "right-bottom";
-        case SNAP_LEFT_TOP:      return "left-top";
-        case SNAP_LEFT_CENTER:   return "left-center";
-        case SNAP_LEFT_BOTTOM:   return "left-bottom";
-        case SNAP_BOTTOM_RIGHT:  return "bottom-right";
-        case SNAP_BOTTOM_LEFT:   return "bottom-left";
-        case SNAP_BOTTOM_CENTER: return "bottom-center";
-        default:                 return "top-right";
+    case SNAP_TOP_RIGHT:
+        return "top-right";
+    case SNAP_TOP_LEFT:
+        return "top-left";
+    case SNAP_TOP_CENTER:
+        return "top-center";
+    case SNAP_RIGHT_TOP:
+        return "right-top";
+    case SNAP_RIGHT_CENTER:
+        return "right-center";
+    case SNAP_RIGHT_BOTTOM:
+        return "right-bottom";
+    case SNAP_LEFT_TOP:
+        return "left-top";
+    case SNAP_LEFT_CENTER:
+        return "left-center";
+    case SNAP_LEFT_BOTTOM:
+        return "left-bottom";
+    case SNAP_BOTTOM_RIGHT:
+        return "bottom-right";
+    case SNAP_BOTTOM_LEFT:
+        return "bottom-left";
+    case SNAP_BOTTOM_CENTER:
+        return "bottom-center";
+    default:
+        return "top-right";
     }
 }
 
 // returns the window-space position of the tail icon for a snap position
 static Vector2 TailWindowPos(SnapPos snap) {
     switch (snap) {
-        case SNAP_LEFT_TOP:
-        case SNAP_LEFT_CENTER:
-        case SNAP_LEFT_BOTTOM:
-            return (Vector2){ 50.0f, 40.0f };
-        case SNAP_RIGHT_TOP:
-        case SNAP_RIGHT_CENTER:
-        case SNAP_RIGHT_BOTTOM:
-            return (Vector2){ 100.0f, 460.0f };
-        default: // top and bottom snaps
-            return (Vector2){ 460.0f, 50.0f };
+    case SNAP_LEFT_TOP:
+    case SNAP_LEFT_CENTER:
+    case SNAP_LEFT_BOTTOM:
+        return (Vector2) { 50.0f, 40.0f };
+    case SNAP_RIGHT_TOP:
+    case SNAP_RIGHT_CENTER:
+    case SNAP_RIGHT_BOTTOM:
+        return (Vector2) { 100.0f, 460.0f };
+    default: // top and bottom snaps
+        return (Vector2) { 460.0f, 50.0f };
     }
 }
 
@@ -114,13 +197,17 @@ static SnapPos SnapFromScreenPos(float gx, float gy, int monW, int monH) {
         float cx = L.x + L.w / 2.0f;
         float cy = L.y + L.h / 2.0f;
         float dx = gx - cx, dy = gy - cy;
-        float score = dx*dx + dy*dy;
+        float score = dx * dx + dy * dy;
 
         // bias toward the wall the mouse is hugging (:3)
-        if (i >= 3 && i <= 5 && dR == minD) score *= 0.5f;      // right
-        else if (i >= 6 && i <= 8 && dL == minD) score *= 0.5f; // left
-        else if (i >= 9 && i <= 11 && dB == minD) score *= 0.5f;// bottom
-        else if (i >= 0 && i <= 2 && dT == minD) score *= 0.5f; // top
+        if (i >= 3 && i <= 5 && dR == minD)
+            score *= 0.5f; // right
+        else if (i >= 6 && i <= 8 && dL == minD)
+            score *= 0.5f; // left
+        else if (i >= 9 && i <= 11 && dB == minD)
+            score *= 0.5f; // bottom
+        else if (i >= 0 && i <= 2 && dT == minD)
+            score *= 0.5f; // top
 
         if (score < bestScore) {
             bestScore = score;
@@ -189,8 +276,7 @@ int main(void) {
     FILE *pfile = fopen("position.txt", "r");
     if (pfile) {
         int sp = 0;
-        if (fscanf(pfile, "%d", &sp) == 1 && sp >= 0 && sp < SNAP_COUNT)
-            g_state.snap_pos = (SnapPos)sp;
+        if (fscanf(pfile, "%d", &sp) == 1 && sp >= 0 && sp < SNAP_COUNT) g_state.snap_pos = (SnapPos)sp;
         fclose(pfile);
     }
     ApplySnap(g_state.snap_pos);
@@ -260,7 +346,7 @@ int main(void) {
 
         // hover
         Vector2 tailPos = TailWindowPos(g_state.snap_pos);
-        g_state.hovering = CheckCollisionPointCircle((Vector2){ mx, my }, tailPos, 35);
+        g_state.hovering = CheckCollisionPointCircle((Vector2) { mx, my }, tailPos, 35);
 
         // left-click drag on the tail :3
         if (g_state.hovering && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !dragging) {
@@ -277,8 +363,8 @@ int main(void) {
             int mw = GetMonitorWidth(mon), mh = GetMonitorHeight(mon);
 
             // only snap if mouse has moved enough
-            float dist = sqrtf((gx - drag_origin_gx) * (gx - drag_origin_gx) +
-                               (gy - drag_origin_gy) * (gy - drag_origin_gy));
+            float dist
+                = sqrtf((gx - drag_origin_gx) * (gx - drag_origin_gx) + (gy - drag_origin_gy) * (gy - drag_origin_gy));
             if (!drag_committed && dist > 15.0f) drag_committed = 1;
 
             if (drag_committed) {
@@ -297,8 +383,7 @@ int main(void) {
                 if (drag_committed) {
                     SaveSnap(g_state.snap_pos);
                     g_state.status_timer = 2.0f;
-                    snprintf(g_state.status_text, sizeof(g_state.status_text),
-                             SnapName(g_state.snap_pos));
+                    snprintf(g_state.status_text, sizeof(g_state.status_text), SnapName(g_state.snap_pos));
                 }
                 g_state.last_hover = -1;
             }

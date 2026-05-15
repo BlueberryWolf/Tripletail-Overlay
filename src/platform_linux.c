@@ -54,7 +54,11 @@ void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y) {
 }
 
 void PlatformGetGlobalMousePos(Platform *p, float *x, float *y) {
-    if (!p->display) { if (x) *x = 0; if (y) *y = 0; return; }
+    if (!p->display) {
+        if (x) *x = 0;
+        if (y) *y = 0;
+        return;
+    }
     Window root = DefaultRootWindow(p->display), child;
     int rx, ry, wx, wy;
     unsigned int mask;

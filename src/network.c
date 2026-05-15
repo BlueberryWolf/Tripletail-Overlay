@@ -19,9 +19,7 @@ static pthread_mutex_t g_meta_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int g_meta_changed = 1;
 static volatile int g_reconnect_requested = 0;
 
-void RequestStreamReconnect(void) {
-    g_reconnect_requested = 1;
-}
+void RequestStreamReconnect(void) { g_reconnect_requested = 1; }
 
 void InitNetwork(void) {
     curl_global_init(CURL_GLOBAL_ALL);
@@ -243,8 +241,13 @@ static size_t StreamWriteCallback(void *contents, size_t size, size_t nmemb, voi
     return realsize;
 }
 
-static int StreamProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
-    (void)clientp; (void)dltotal; (void)dlnow; (void)ultotal; (void)ulnow;
+static int StreamProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal,
+                                  curl_off_t ulnow) {
+    (void)clientp;
+    (void)dltotal;
+    (void)dlnow;
+    (void)ultotal;
+    (void)ulnow;
     if (g_reconnect_requested) {
         g_reconnect_requested = 0;
         return 1;
@@ -273,7 +276,7 @@ static void *StreamThread(void *lpParam) {
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Tripletail-Desktop/1.0");
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-        
+
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1000L);
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 15L);
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
@@ -283,10 +286,10 @@ static void *StreamThread(void *lpParam) {
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 
         curl_easy_perform(curl);
-        
+
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
-        
+
         if (!rb_is_closed(rb)) sleep_ms(1000);
     }
     return NULL;
