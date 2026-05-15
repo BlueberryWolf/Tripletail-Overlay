@@ -29,8 +29,12 @@ else
 
     CFLAGS="$CFLAGS -I/usr/include/opus $(pkg-config --cflags raylib opusfile libcurl)"
     RAYLIB_STATIC="./raylib-6.0_linux_amd64/lib/libraylib.a"
-    OTHER_LIBS=$(pkg-config --libs opusfile libcurl || echo "-lopusfile -lcurl")
-    LDFLAGS="$LDFLAGS -Wl,--gc-sections $RAYLIB_STATIC $OTHER_LIBS -lX11 -lXcursor -lXinerama -lXi -lXrandr -lGL -lpthread -lm -ldl -lrt"
+    OPUSFILE_LIBDIR=$(pkg-config --variable=libdir opusfile 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu")
+    OPUS_LIBDIR=$(pkg-config --variable=libdir opus 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu")
+    OGG_LIBDIR=$(pkg-config --variable=libdir ogg 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu")
+    OPUS_STATIC="$OPUSFILE_LIBDIR/libopusfile.a $OPUS_LIBDIR/libopus.a $OGG_LIBDIR/libogg.a"
+
+    LDFLAGS="$LDFLAGS -Wl,--gc-sections $RAYLIB_STATIC $OPUS_STATIC -lcurl -lX11 -lXcursor -lXinerama -lXi -lXrandr -lGL -lpthread -lm -ldl -lrt"
     PLATFORM_SRC="src/platform_linux.c"
 fi
 
