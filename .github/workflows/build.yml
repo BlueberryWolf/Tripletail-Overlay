@@ -55,7 +55,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install raylib opusfile curl pkg-config
+          brew install raylib opusfile
 
       - name: Build
         run: |
@@ -77,7 +77,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install raylib opusfile curl pkg-config
+          brew install raylib opusfile
 
       - name: Build
         run: |

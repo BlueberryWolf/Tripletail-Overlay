@@ -383,7 +383,7 @@ int main(void) {
                 if (drag_committed) {
                     SaveSnap(g_state.snap_pos);
                     g_state.status_timer = 2.0f;
-                    snprintf(g_state.status_text, sizeof(g_state.status_text), SnapName(g_state.snap_pos));
+                    snprintf(g_state.status_text, sizeof(g_state.status_text), "%s", SnapName(g_state.snap_pos));
                 }
                 g_state.last_hover = -1;
             }
