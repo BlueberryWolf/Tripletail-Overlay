@@ -5,8 +5,8 @@ setlocal enabledelayedexpansion
 taskkill /f /im tripletail-overlay.exe >nul 2>nul
 
 :: base flags
-set CFLAGS=-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -DCURL_STATICLIB -ffunction-sections -fdata-sections -I.\deps\raylib\include -I.\deps\kiss_fft -I.\deps\stb -I.\src
-set LDFLAGS=-L.\deps\raylib\lib -flto -Wl,--gc-sections -s -mwindows -lraylib -lgdi32 -lwinmm -lole32 -loleaut32 -luuid -lpsapi -lm
+set CFLAGS=-Wall -O3 -ffast-math -flto -Dkiss_fft_scalar=float -DCURL_STATICLIB -ffunction-sections -fdata-sections -I.\deps\raylib\include -I.\deps\kiss_fft -I.\deps\stb -I.\src -I"C:\msys64\mingw64\include" -I"C:\msys64\mingw64\include\opus"
+set LINK_BASE=-static -L.\deps\raylib\lib -L"C:\msys64\mingw64\lib" -flto -Wl,--gc-sections -s -mwindows
 
 :: detect dependencies
 where pkg-config >nul 2>nul
@@ -14,13 +14,13 @@ if %ERRORLEVEL% EQU 0 (
     pkg-config --exists opusfile libcurl >nul 2>nul
     if !ERRORLEVEL! EQU 0 (
         for /f "tokens=*" %%i in ('pkg-config --cflags opusfile libcurl') do set CFLAGS=%CFLAGS% %%i
-        for /f "tokens=*" %%i in ('pkg-config --static --libs opusfile libcurl') do set LDFLAGS=%LDFLAGS% %%i
+        for /f "tokens=*" %%i in ('pkg-config --static --libs opusfile libcurl') do set LIBS=%%i
         goto :START_BUILD
     )
 )
 
 :: fallback garbage
-set LDFLAGS=%LDFLAGS% -lcurl -lopusfile -lopus -logg
+set LIBS=-lopusfile -logg -lopus -lcurl -lssl -lcrypto -lssh2 -lzstd -lbrotlidec -lbrotlicommon -lidn2 -lunistring -liconv -lws2_32 -lshlwapi -lbcrypt -lcrypt32 -ladvapi32 -luserenv -lwldap32 -lnormaliz
 if exist "C:\msys64\mingw64\include\opus" (
     set CFLAGS=%CFLAGS% -IC:\msys64\mingw64\include\opus
 ) else if defined MSYSTEM (
@@ -28,6 +28,8 @@ if exist "C:\msys64\mingw64\include\opus" (
 )
 
 :START_BUILD
+set LDFLAGS=%LINK_BASE% -lraylib -lgdi32 -lwinmm -lole32 -loleaut32 -luuid -lpsapi -lm %LIBS%
+
 if exist build rd /s /q build
 if not exist build mkdir build
 
