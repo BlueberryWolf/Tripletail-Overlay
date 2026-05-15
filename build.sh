@@ -18,7 +18,7 @@ if [ "$OS_NAME" == "Darwin" ]; then
     PLATFORM_SRC="src/platform_macos.m"
 else
     CFLAGS="$CFLAGS -I/usr/include/opus $(pkg-config --cflags raylib opusfile libcurl)"
-    RAYLIB_STATIC=$(pkg-config --libs --static raylib 2>/dev/null || echo "-lraylib")
+    RAYLIB_STATIC=$(pkg-config --libs --static raylib 2>/dev/null | sed 's/-lraylib/-l:libraylib.a/g' || echo "-l:libraylib.a")
     OTHER_LIBS=$(pkg-config --libs opusfile libcurl || echo "-lopusfile -lcurl")
     LDFLAGS="$LDFLAGS -Wl,--gc-sections $RAYLIB_STATIC $OTHER_LIBS -lX11 -lXcursor -lXinerama -lXi -lXrandr -lGL -lpthread -lm -ldl -lrt"
     PLATFORM_SRC="src/platform_linux.c"
