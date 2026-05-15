@@ -10,19 +10,25 @@ OS_NAME=$(uname -s)
 echo "Building for $OS_NAME..."
 
 if [ "$OS_NAME" == "Darwin" ]; then
+    curl https://github.com/raysan5/raylib/releases/download/6.0/raylib-6.0_macos.tar.gz -O
+    tar -xzf raylib-6.0_macos.tar.gz
+
     CFLAGS="$CFLAGS $(pkg-config --cflags raylib opusfile libcurl)"
     CFLAGS="$CFLAGS -I$(pkg-config --variable=includedir opusfile | sed 's/\/opus$//')"
 
-    LIBDIR=$(pkg-config --variable=libdir raylib 2>/dev/null || echo "/usr/local/lib")
-    RAYLIB_STATIC="$LIBDIR/libraylib.a"
-    OPUS_LIBDIR=$(pkg-config --variable=libdir opusfile 2>/dev/null || echo "/usr/local/lib")
+    LIBDIR=$(pkg-config --variable=libdir raylib 2>/dev/null || echo "/usr/lib")
+    RAYLIB_STATIC="./raylib-6.0_macos/lib/libraylib.a"
+    OPUS_LIBDIR=$(pkg-config --variable=libdir opusfile 2>/dev/null || echo "/usr/lib")
     OPUS_STATIC="$OPUS_LIBDIR/libopusfile.a $(pkg-config --variable=libdir opus 2>/dev/null)/libopus.a $(pkg-config --variable=libdir ogg 2>/dev/null)/libogg.a"
     
     LDFLAGS="$LDFLAGS -Wl,-dead_strip $RAYLIB_STATIC $OPUS_STATIC -lcurl -framework AppKit -framework CoreGraphics -framework IOKit -framework AudioToolbox -framework CoreVideo -framework Cocoa"
     PLATFORM_SRC="src/platform_macos.m"
 else
+    curl https://github.com/raysan5/raylib/releases/download/6.0/raylib-6.0_linux_i386.tar.gz -O
+    tar -xzf raylib-6.0_linux_i386.tar.gz
+
     CFLAGS="$CFLAGS -I/usr/include/opus $(pkg-config --cflags raylib opusfile libcurl)"
-    RAYLIB_STATIC=$(pkg-config --libs --static raylib 2>/dev/null | sed 's/-lraylib/-l:libraylib.a/g' || echo "-l:libraylib.a")
+    RAYLIB_STATIC="./raylib-6.0_linux_i386/lib/libraylib.a"
     OTHER_LIBS=$(pkg-config --libs opusfile libcurl || echo "-lopusfile -lcurl")
     LDFLAGS="$LDFLAGS -Wl,--gc-sections $RAYLIB_STATIC $OTHER_LIBS -lX11 -lXcursor -lXinerama -lXi -lXrandr -lGL -lpthread -lm -ldl -lrt"
     PLATFORM_SRC="src/platform_linux.c"
