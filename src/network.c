@@ -269,7 +269,7 @@ static void *StreamThread(void *lpParam) {
         headers = curl_slist_append(headers, "Pragma: no-cache");
         headers = curl_slist_append(headers, "Icy-MetaData: 0");
 
-        curl_easy_setopt(curl, CURLOPT_URL, "https://radio.blueberry.coffee/radio.ogg");
+        curl_easy_setopt(curl, CURLOPT_URL, "https://radio.blueberry.coffee/listen/tripletail/radio.ogg");
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)rb);
