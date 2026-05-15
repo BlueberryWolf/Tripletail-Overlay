@@ -25,10 +25,10 @@ if [ "$OS_NAME" == "Darwin" ]; then
     PLATFORM_SRC="src/platform_macos.m"
 else
     curl https://github.com/raysan5/raylib/releases/download/6.0/raylib-6.0_linux_amd64.tar.gz -L -O
-    tar -xzf raylib-6.0_linux_i386.tar.gz
+    tar -xzf raylib-6.0_linux_amd64.tar.gz
 
     CFLAGS="$CFLAGS -I/usr/include/opus $(pkg-config --cflags raylib opusfile libcurl)"
-    RAYLIB_STATIC="./raylib-6.0_linux_i386/lib/libraylib.a"
+    RAYLIB_STATIC="./raylib-6.0_linux_amd64/lib/libraylib.a"
     OTHER_LIBS=$(pkg-config --libs opusfile libcurl || echo "-lopusfile -lcurl")
     LDFLAGS="$LDFLAGS -Wl,--gc-sections $RAYLIB_STATIC $OTHER_LIBS -lX11 -lXcursor -lXinerama -lXi -lXrandr -lGL -lpthread -lm -ldl -lrt"
     PLATFORM_SRC="src/platform_linux.c"
