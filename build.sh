@@ -12,8 +12,12 @@ echo "Building for $OS_NAME..."
 if [ "$OS_NAME" == "Darwin" ]; then
     CFLAGS="$CFLAGS $(pkg-config --cflags raylib opusfile libcurl)"
     CFLAGS="$CFLAGS -I$(pkg-config --variable=includedir opusfile | sed 's/\/opus$//')"
-    RAYLIB_STATIC=$(pkg-config --libs --static raylib 2>/dev/null || echo "-lraylib")
-    OPUS_STATIC=$(pkg-config --libs --static opusfile 2>/dev/null || echo "-lopusfile -lopus -logg")
+
+    LIBDIR=$(pkg-config --variable=libdir raylib 2>/dev/null || echo "/usr/local/lib")
+    RAYLIB_STATIC="$LIBDIR/libraylib.a"
+    OPUS_LIBDIR=$(pkg-config --variable=libdir opusfile 2>/dev/null || echo "/usr/local/lib")
+    OPUS_STATIC="$OPUS_LIBDIR/libopusfile.a $(pkg-config --variable=libdir opus 2>/dev/null)/libopus.a $(pkg-config --variable=libdir ogg 2>/dev/null)/libogg.a"
+    
     LDFLAGS="$LDFLAGS -Wl,-dead_strip $RAYLIB_STATIC $OPUS_STATIC -lcurl -framework AppKit -framework CoreGraphics -framework IOKit -framework AudioToolbox -framework CoreVideo -framework Cocoa"
     PLATFORM_SRC="src/platform_macos.m"
 else
