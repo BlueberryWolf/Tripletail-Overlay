@@ -10,5 +10,6 @@ void AppAudioCallback(void *bufferData, unsigned int frames);
 void *DecodeThread(void *lpParam);
 float GetBassLevel(void);
 double GetLastAudioTime(void);
+void GetStreamMetadata(char *title, char *artist);
 
 #endif

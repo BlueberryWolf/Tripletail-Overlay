@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#endif
+
 static kiss_fft_cpx g_fft_in[FFT_SIZE];
 static kiss_fft_cpx g_fft_out_cpx[FFT_SIZE];
 static float g_hanning[FFT_SIZE];
@@ -118,6 +122,17 @@ static int rb_read_cb(void *stream, unsigned char *ptr, int nbytes) {
     return (int)rb_read((RingBuffer *)stream, ptr, nbytes);
 }
 
+static char g_stream_title[256] = { 0 };
+static char g_stream_artist[256] = { 0 };
+static pthread_mutex_t g_stream_meta_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void GetStreamMetadata(char *title, char *artist) {
+    pthread_mutex_lock(&g_stream_meta_mutex);
+    if (title) strcpy(title, g_stream_title);
+    if (artist) strcpy(artist, g_stream_artist);
+    pthread_mutex_unlock(&g_stream_meta_mutex);
+}
+
 void *DecodeThread(void *lpParam) {
     RingBuffer *rb = (RingBuffer *)lpParam;
     int16_t pcm[4096 * CHANNELS];
@@ -133,6 +148,21 @@ void *DecodeThread(void *lpParam) {
 
         // decoder loop
         while (!rb_is_closed(rb)) {
+            // check for tags!
+            const OpusTags *tags = op_tags(op, -1);
+            if (tags) {
+                pthread_mutex_lock(&g_stream_meta_mutex);
+                for (int i = 0; i < tags->comments; i++) {
+                    char *c = tags->user_comments[i];
+                    if (strncasecmp(c, "TITLE=", 6) == 0) {
+                        strncpy(g_stream_title, c + 6, sizeof(g_stream_title) - 1);
+                    } else if (strncasecmp(c, "ARTIST=", 7) == 0) {
+                        strncpy(g_stream_artist, c + 7, sizeof(g_stream_artist) - 1);
+                    }
+                }
+                pthread_mutex_unlock(&g_stream_meta_mutex);
+            }
+
             int samples = op_read(op, pcm, sizeof(pcm) / sizeof(int16_t), NULL);
             if (samples <= 0) {
                 if (samples < 0) break;
