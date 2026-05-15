@@ -401,9 +401,11 @@ int main(void) {
         }
 
         if (dragging) {
+            int mon = GetCurrentMonitor();
+            int mw = GetMonitorWidth(mon), mh = GetMonitorHeight(mon);
+
             // only snap if mouse has moved enough
             float dist
-
                 = sqrtf((gx - drag_origin_gx) * (gx - drag_origin_gx) + (gy - drag_origin_gy) * (gy - drag_origin_gy));
             if (!drag_committed && dist > 15.0f) drag_committed = 1;
 
