@@ -38,15 +38,14 @@ void DestroyPlatform(Platform *p) {
 }
 
 void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y) {
-    if (!p->display) return;
+    if (!p->display || !windowHandle) return;
     Window root = DefaultRootWindow(p->display), child;
     int rx, ry, wx, wy;
     unsigned int mask;
 
-    if (XQueryPointer(p->display, root, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
-        Vector2 pos = GetWindowPosition();
-        if (x) *x = (float)rx - pos.x;
-        if (y) *y = (float)ry - pos.y;
+    if (XQueryPointer(p->display, (Window)windowHandle, &root, &child, &rx, &ry, &wx, &wy, &mask)) {
+        if (x) *x = (float)wx;
+        if (y) *y = (float)wy;
     } else {
         if (x) *x = -10000.0f;
         if (y) *y = -10000.0f;

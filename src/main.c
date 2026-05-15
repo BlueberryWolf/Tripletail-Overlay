@@ -259,6 +259,9 @@ static void LoadPendingCoverArt(void) {
 }
 
 int main(void) {
+#ifdef __linux__
+    setenv("GLFW_PLATFORM", "x11", 0);
+#endif
     g_platform = CreatePlatform();
     if (!PlatformEnsureSingleInstance(g_platform)) return 0;
 
