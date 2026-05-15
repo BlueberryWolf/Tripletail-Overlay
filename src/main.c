@@ -335,7 +335,7 @@ int main(void) {
 #endif
 
     // buffers for the audio juice
-    RingBuffer *net_rb = rb_create(4 * 1024 * 1024);
+    RingBuffer *net_rb = rb_create(128 * 1024);
     g_pcm_rb = rb_create(SAMPLE_RATE * CHANNELS * sizeof(int16_t));
     StartAudioStream(net_rb);
 
@@ -498,19 +498,10 @@ int main(void) {
             g_pending_meta.meta = new_meta;
             g_pending_meta.ready_time = GetTime() + pcm_delay + net_delay;
             g_pending_meta.active = 1;
-        }
 
-        char s_title[256] = { 0 }, s_artist[256] = { 0 };
-        GetStreamMetadata(s_title, s_artist);
-        if (strlen(s_title) > 0 && strcmp(s_title, g_state.title) != 0) {
-            if (g_pending_meta.active && strcmp(g_pending_meta.meta.title, s_title) == 0) {
-                ApplyMetadata(&g_pending_meta.meta);
-                g_pending_meta.active = 0;
-            } else {
-                strcpy(g_state.title, s_title);
-                strcpy(g_state.artist, s_artist);
-                g_state.popup_timer = 10.0f;
-                g_state.progress_lerp = 0.0f;
+            // if it's the very first update (title is still Connecting...), skip the delay
+            if (strcmp(g_state.title, "Connecting...") == 0) {
+                g_pending_meta.ready_time = GetTime();
             }
         }
 
