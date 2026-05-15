@@ -68,6 +68,28 @@ jobs:
           name: tripletail-overlay-macos
           path: tripletail-overlay
 
+  build-macos-intel:
+    name: Build for macOS (Intel)
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          brew install raylib opusfile curl pkg-config
+
+      - name: Build
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: tripletail-overlay-macos-intel
+          path: tripletail-overlay
+
   build-windows:
     name: Build for Windows
     runs-on: windows-latest
