@@ -68,7 +68,8 @@ void InitUI(void) {
 void UpdateUIState(void) {
     // ticking the clock
     if (g_state.duration > 0) {
-        g_state.elapsed = g_state.base_elapsed + (float)(g_state.samples_played - g_state.samples_at_base) / SAMPLE_RATE;
+        g_state.elapsed
+            = g_state.base_elapsed + (float)(g_state.samples_played - g_state.samples_at_base) / SAMPLE_RATE;
         if (g_state.elapsed > g_state.duration) g_state.elapsed = (float)g_state.duration;
         g_state.progress_lerp = SmoothLerp(g_state.progress_lerp, g_state.elapsed / (float)g_state.duration, 0.1f);
     }
@@ -269,16 +270,19 @@ static void DrawScene(void) {
             char userPart[64];
             snprintf(userPart, sizeof(userPart), "%s: ", g_state.chat[i].user);
             Vector2 userSize = MeasureTextEx(g_font_reg, userPart, 16, 0);
-            
+
             Vector2 basePos = { 10, chatY - popOffset + y_off };
 
             // shadow
-            DrawTextEx(g_font_reg, userPart, (Vector2){ basePos.x + 1, basePos.y + 1 }, 16, 0, (Color){ 0, 0, 0, (unsigned char)(a * 0.5f) });
-            DrawTextEx(g_font_reg, g_state.chat[i].text, (Vector2){ basePos.x + 1 + userSize.x, basePos.y + 1 }, 16, 0, (Color){ 0, 0, 0, (unsigned char)(a * 0.5f) });
+            DrawTextEx(g_font_reg, userPart, (Vector2) { basePos.x + 1, basePos.y + 1 }, 16, 0,
+                       (Color) { 0, 0, 0, (unsigned char)(a * 0.5f) });
+            DrawTextEx(g_font_reg, g_state.chat[i].text, (Vector2) { basePos.x + 1 + userSize.x, basePos.y + 1 }, 16, 0,
+                       (Color) { 0, 0, 0, (unsigned char)(a * 0.5f) });
 
             // content
             DrawTextEx(g_font_reg, userPart, basePos, 16, 0, userColor);
-            DrawTextEx(g_font_reg, g_state.chat[i].text, (Vector2){ basePos.x + userSize.x, basePos.y }, 16, 0, textColor);
+            DrawTextEx(g_font_reg, g_state.chat[i].text, (Vector2) { basePos.x + userSize.x, basePos.y }, 16, 0,
+                       textColor);
 
             chatY += 20.0f;
         }
@@ -286,7 +290,8 @@ static void DrawScene(void) {
 
     // dim
     if (g_state.chat_focus_alpha > 0.01f) {
-        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){ 0, 0, 0, (unsigned char)(g_state.chat_focus_alpha * 100) });
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
+                      (Color) { 0, 0, 0, (unsigned char)(g_state.chat_focus_alpha * 100) });
     }
 
     if (g_state.chat_focus_alpha > 0.01f) {
@@ -294,27 +299,27 @@ static void DrawScene(void) {
         unsigned char a = (unsigned char)(falpha * 255);
         float boxW = 320.0f;
         float boxH = 34.0f;
-        
+
         float boxX = 80.0f - (1.0f - falpha) * 40.0f;
         float boxY = SnapIsBottom(g_state.snap_pos) ? 30.0f : 110.0f;
 
-        DrawRectangleRounded((Rectangle){ boxX, boxY, boxW, boxH }, 0.2f, 8, (Color){ 20, 20, 20, (unsigned char)(a * 0.95f) });
-        DrawRectangleRoundedLines((Rectangle){ boxX, boxY, boxW, boxH }, 0.2f, 8, 2, (Color){ 168, 85, 247, a });
+        DrawRectangleRounded((Rectangle) { boxX, boxY, boxW, boxH }, 0.2f, 8,
+                             (Color) { 20, 20, 20, (unsigned char)(a * 0.95f) });
+        DrawRectangleRoundedLines((Rectangle) { boxX, boxY, boxW, boxH }, 0.2f, 8, 2, (Color) { 168, 85, 247, a });
         static float cursor_timer = 0;
         cursor_timer += GetFrameTime();
         const char *input_text = g_state.chat_input;
         Vector2 text_size = MeasureTextEx(g_font_reg, input_text, 18, 0);
-        
-        DrawTextEx(g_font_reg, input_text, (Vector2){ boxX + 10, boxY + 8 }, 18, 0, (Color){ 255, 255, 255, a });
-        
+
+        DrawTextEx(g_font_reg, input_text, (Vector2) { boxX + 10, boxY + 8 }, 18, 0, (Color) { 255, 255, 255, a });
+
         if (falpha > 0.9f && ((int)(cursor_timer * 2) % 2 == 0)) {
-            DrawRectangle((int)(boxX + 10 + text_size.x + 2), (int)(boxY + 8), 2, 18, (Color){ 168, 85, 247, a });
+            DrawRectangle((int)(boxX + 10 + text_size.x + 2), (int)(boxY + 8), 2, 18, (Color) { 168, 85, 247, a });
         }
 
         const char *label = g_state.has_set_name ? "Say something..." : "Set your username:";
-        DrawTextEx(g_font_reg, label, (Vector2){ boxX + 2, boxY - 18 }, 14, 0, (Color){ 168, 85, 247, a });
+        DrawTextEx(g_font_reg, label, (Vector2) { boxX + 2, boxY - 18 }, 14, 0, (Color) { 168, 85, 247, a });
     }
-
 
     // bouncy tail :3
     static float tail_bounce = 0.0f;

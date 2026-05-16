@@ -189,13 +189,13 @@ static Rectangle ChatInputWindowRect(SnapPos snap) {
     case SNAP_LEFT_TOP:
     case SNAP_LEFT_CENTER:
     case SNAP_LEFT_BOTTOM:
-        return (Rectangle){ by, 500.0f - bx - bw, bh, bw };
+        return (Rectangle) { by, 500.0f - bx - bw, bh, bw };
     case SNAP_RIGHT_TOP:
     case SNAP_RIGHT_CENTER:
     case SNAP_RIGHT_BOTTOM:
-        return (Rectangle){ 150.0f - by - bh, bx, bh, bw };
+        return (Rectangle) { 150.0f - by - bh, bx, bh, bw };
     default:
-        return (Rectangle){ bx, by, bw, bh };
+        return (Rectangle) { bx, by, bw, bh };
     }
 }
 
@@ -517,38 +517,41 @@ int main(void) {
                 PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
             }
 
-        // cursor and passthrough state guards
-        static int last_cursor = -1;
-        static int last_passthrough = -1;
+            // cursor and passthrough state guards
+            static int last_cursor = -1;
+            static int last_passthrough = -1;
 
-        int current_cursor = MOUSE_CURSOR_DEFAULT;
-        if (g_state.hovering || g_state.chat_input_active || dragging || g_state.status_timer > 0.1f || g_state.popup_timer > 0.1f) {
-            current_cursor = MOUSE_CURSOR_IBEAM;
-        }
+            int current_cursor = MOUSE_CURSOR_DEFAULT;
+            if (g_state.hovering || g_state.chat_input_active || dragging || g_state.status_timer > 0.1f
+                || g_state.popup_timer > 0.1f) {
+                current_cursor = MOUSE_CURSOR_IBEAM;
+            }
 
-        if (current_cursor != last_cursor) {
-            SetMouseCursor(current_cursor);
-            last_cursor = current_cursor;
-        }
+            if (current_cursor != last_cursor) {
+                SetMouseCursor(current_cursor);
+                last_cursor = current_cursor;
+            }
 
-        int current_passthrough = !(g_state.hovering || dragging || g_state.chat_input_active);
-        if (current_passthrough != last_passthrough) {
-            if (current_passthrough) SetWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
-            else ClearWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
-            last_passthrough = current_passthrough;
-        }
+            int current_passthrough = !(g_state.hovering || dragging || g_state.chat_input_active);
+            if (current_passthrough != last_passthrough) {
+                if (current_passthrough)
+                    SetWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
+                else
+                    ClearWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
+                last_passthrough = current_passthrough;
+            }
 
             if (IsKeyPressed(KEY_ESCAPE)) {
                 g_state.chat_input_active = 0;
                 PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
             }
-            
+
             // escape to close ts
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !g_state.hovering) {
                 Rectangle inputRect = ChatInputWindowRect(g_state.snap_pos);
-                if (!CheckCollisionPointRec((Vector2){mx, my}, inputRect)) {
-                     g_state.chat_input_active = 0;
-                     PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
+                if (!CheckCollisionPointRec((Vector2) { mx, my }, inputRect)) {
+                    g_state.chat_input_active = 0;
+                    PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
                 }
             }
         }
@@ -588,7 +591,7 @@ int main(void) {
         if (GetLatestMetadata(&new_meta)) {
             // calculate current audio delay
             double pcm_delay = (double)rb_available(g_pcm_rb) / (SAMPLE_RATE * CHANNELS * sizeof(int16_t));
-            
+
             double bitrate = (g_state.stream_bitrate > 0) ? (double)g_state.stream_bitrate : 128000.0;
             double net_delay = (double)rb_available(net_rb) / (bitrate / 8.0);
 

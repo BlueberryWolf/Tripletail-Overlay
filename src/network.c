@@ -1,7 +1,7 @@
 #ifdef _WIN32
-    #define Rectangle Rectangle_Windows
-    #define CloseWindow CloseWindow_Windows
-    #define ShowCursor ShowCursor_Windows
+#define Rectangle Rectangle_Windows
+#define CloseWindow CloseWindow_Windows
+#define ShowCursor ShowCursor_Windows
 #endif
 
 #include "network.h"
@@ -13,24 +13,24 @@
 #include <string.h>
 
 #ifdef _WIN32
-    #include <windows.h>
-    #undef Rectangle
-    #undef CloseWindow
-    #undef ShowCursor
-    #undef LoadImage
-    #undef DrawText
-    #undef DrawTextEx
-    #undef PlaySound
-    
-    #define sleep_ms(ms) Sleep(ms)
+#include <windows.h>
+#undef Rectangle
+#undef CloseWindow
+#undef ShowCursor
+#undef LoadImage
+#undef DrawText
+#undef DrawTextEx
+#undef PlaySound
+
+#define sleep_ms(ms) Sleep(ms)
 #else
-    #include <unistd.h>
-    #define sleep_ms(ms) usleep((ms) * 1000)
+#include <unistd.h>
+#define sleep_ms(ms) usleep((ms) * 1000)
 #endif
 
-#include "state.h"
-#include "raylib.h"
 #include "platform.h"
+#include "raylib.h"
+#include "state.h"
 
 static TrackMetadata g_meta = { "Connecting...", "Tripletail FM", "", 0, 0 };
 static pthread_mutex_t g_meta_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -41,14 +41,13 @@ static pthread_mutex_t g_chat_send_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void RequestStreamReconnect(void) { g_reconnect_requested = 1; }
 
-
 static Color ParseHexColor(const char *hex) {
-    if (!hex || hex[0] != '#') return (Color){ 255, 255, 255, 255 };
+    if (!hex || hex[0] != '#') return (Color) { 255, 255, 255, 255 };
     int r, g, b;
     if (sscanf(hex + 1, "%02x%02x%02x", &r, &g, &b) == 3) {
-        return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
+        return (Color) { (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
     }
-    return (Color){ 255, 255, 255, 255 };
+    return (Color) { 255, 255, 255, 255 };
 }
 
 static void PushChatMessage(const char *user, const char *text, Color color) {
@@ -117,7 +116,8 @@ static void *ChatWebSocketThread(void *arg) {
                         char colorHex[8];
                         snprintf(colorHex, sizeof(colorHex), "#%02x%02x%02x", g_state.user_color.r,
                                  g_state.user_color.g, g_state.user_color.b);
-                        snprintf(msg, sizeof(msg), "42[\"chat_message\",{\"user\":\"%s\",\"text\":\"%s\",\"user_color\":\"%s\"}]",
+                        snprintf(msg, sizeof(msg),
+                                 "42[\"chat_message\",{\"user\":\"%s\",\"text\":\"%s\",\"user_color\":\"%s\"}]",
                                  g_state.username, g_pending_chat, colorHex);
                         size_t sent;
                         curl_ws_send(curl, msg, strlen(msg), &sent, 0, CURLWS_TEXT);
@@ -163,14 +163,16 @@ void InitNetwork(void) {
         }
         fclose(f);
     }
-    
+
     if (!g_state.has_set_name) {
         snprintf(g_state.username, sizeof(g_state.username), "Floofer%d", GetRandomValue(100, 999));
-        g_state.user_color = (Color){ (unsigned char)GetRandomValue(100, 255), (unsigned char)GetRandomValue(100, 255), (unsigned char)GetRandomValue(100, 255), 255 };
+        g_state.user_color = (Color) { (unsigned char)GetRandomValue(100, 255), (unsigned char)GetRandomValue(100, 255),
+                                       (unsigned char)GetRandomValue(100, 255), 255 };
     } else {
         unsigned int hash = 5381;
         for (int i = 0; g_state.username[i]; i++) hash = ((hash << 5) + hash) + g_state.username[i];
-        g_state.user_color = (Color){ (unsigned char)(100 + (hash % 155)), (unsigned char)(100 + ((hash >> 8) % 155)), (unsigned char)(100 + ((hash >> 16) % 155)), 255 };
+        g_state.user_color = (Color) { (unsigned char)(100 + (hash % 155)), (unsigned char)(100 + ((hash >> 8) % 155)),
+                                       (unsigned char)(100 + ((hash >> 16) % 155)), 255 };
     }
 
     pthread_t chat_tid;

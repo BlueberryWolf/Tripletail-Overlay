@@ -67,7 +67,7 @@ void AppAudioCallback(void *bufferData, unsigned int frames) {
     float current_vol = (vol_sum / (samples > 0 ? samples : 1)) * 4.0f;
     if (current_vol > 0.001f) {
         g_last_audio_time = GetTime();
-        
+
         for (int i = 0; i < samples; i++) {
             // mono mixdown for the visualizer
             float mono = (pcm[i * CHANNELS] + pcm[i * CHANNELS + 1]) / 65536.0f;
@@ -77,7 +77,7 @@ void AppAudioCallback(void *bufferData, unsigned int frames) {
             if (++g_fft_idx >= FFT_SIZE) {
                 // finally doing the math
                 kiss_fft(g_fft_cfg, g_fft_in, g_fft_out_cpx);
-                
+
                 pthread_mutex_lock(&g_vis.mutex);
                 for (int k = 0; k < VIS_BARS; k++) {
                     int bin = g_bin_map[k];
