@@ -38,6 +38,7 @@ static int g_meta_changed = 1;
 static volatile int g_reconnect_requested = 0;
 static char g_pending_chat[128] = { 0 };
 static pthread_mutex_t g_chat_send_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_chat_send_cond = PTHREAD_COND_INITIALIZER;
 
 void RequestStreamReconnect(void) { g_reconnect_requested = 1; }
 
@@ -70,6 +71,7 @@ static void PushChatMessage(const char *user, const char *text, Color color) {
 void SendChatMessage(const char *text) {
     pthread_mutex_lock(&g_chat_send_mutex);
     strncpy(g_pending_chat, text, 127);
+    pthread_cond_signal(&g_chat_send_cond);
     pthread_mutex_unlock(&g_chat_send_mutex);
 }
 
@@ -111,6 +113,28 @@ static void *ChatWebSocketThread(void *arg) {
                 double last_ping = GetTime();
                 while (1) {
                     pthread_mutex_lock(&g_chat_send_mutex);
+                    if (g_pending_chat[0] == '\0') {
+                        struct timespec ts;
+#ifdef _WIN32
+                        FILETIME ft;
+                        GetSystemTimeAsFileTime(&ft);
+                        ULARGE_INTEGER uli;
+                        uli.LowPart = ft.dwLowDateTime;
+                        uli.HighPart = ft.dwHighDateTime;
+                        uint64_t ns = (uli.QuadPart - 116444736000000000ULL) * 100;
+                        ts.tv_sec = ns / 1000000000;
+                        ts.tv_nsec = ns % 1000000000;
+#else
+                        clock_gettime(CLOCK_REALTIME, &ts);
+#endif
+                        ts.tv_nsec += 50000000; // 50ms
+                        if (ts.tv_nsec >= 1000000000) {
+                            ts.tv_sec++;
+                            ts.tv_nsec -= 1000000000;
+                        }
+                        pthread_cond_timedwait(&g_chat_send_cond, &g_chat_send_mutex, &ts);
+                    }
+
                     if (g_pending_chat[0] != '\0') {
                         char msg[512];
                         char colorHex[8];
@@ -132,17 +156,20 @@ static void *ChatWebSocketThread(void *arg) {
                         last_ping = GetTime();
                     }
 
-                    size_t rlen;
-                    const struct curl_ws_frame *meta;
-                    res = curl_ws_recv(curl, recv_buf, sizeof(recv_buf) - 1, &rlen, &meta);
-                    if (res == CURLE_OK) {
-                        recv_buf[rlen] = 0;
-                        HandleChatIncoming(curl, recv_buf);
-                    } else if (res != CURLE_AGAIN) {
-                        break;
+                    // drain loop for incoming
+                    while (1) {
+                        size_t rlen;
+                        const struct curl_ws_frame *meta;
+                        res = curl_ws_recv(curl, recv_buf, sizeof(recv_buf) - 1, &rlen, &meta);
+                        if (res == CURLE_OK) {
+                            recv_buf[rlen] = 0;
+                            HandleChatIncoming(curl, recv_buf);
+                        } else {
+                            break;
+                        }
                     }
 
-                    sleep_ms(100);
+                    if (res != CURLE_OK && res != CURLE_AGAIN) break;
                 }
             } else {
             }
