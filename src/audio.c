@@ -53,62 +53,69 @@ void AppAudioCallback(void *bufferData, unsigned int frames) {
 
     // grabbing the pcm data from the ringbuffer
     int bytes_to_read = frames * CHANNELS * sizeof(int16_t);
-    int bytes_read = rb_read_nonblocking(g_pcm_rb, (uint8_t *)bufferData, bytes_to_read);
+    size_t bytes_read = rb_read_nonblocking(g_pcm_rb, (uint8_t *)bufferData, bytes_to_read);
     if (bytes_read < bytes_to_read) {
         memset((uint8_t *)bufferData + bytes_read, 0, bytes_to_read - bytes_read);
     }
+    g_state.samples_played += bytes_read / (CHANNELS * sizeof(int16_t));
 
     int16_t *pcm = (int16_t *)bufferData;
     int samples = bytes_read / (CHANNELS * sizeof(int16_t));
 
     float vol_sum = 0.0f;
-    for (int i = 0; i < samples; i++) {
-        // mono mixdown for the visualizer
-        float mono = (pcm[i * CHANNELS] + pcm[i * CHANNELS + 1]) / 65536.0f;
-        vol_sum += fabsf(mono);
+    for (int i = 0; i < samples; i++) vol_sum += fabsf((pcm[i * CHANNELS] + pcm[i * CHANNELS + 1]) / 65536.0f);
+    float current_vol = (vol_sum / (samples > 0 ? samples : 1)) * 4.0f;
+    if (current_vol > 0.001f) {
+        g_last_audio_time = GetTime();
+        
+        for (int i = 0; i < samples; i++) {
+            // mono mixdown for the visualizer
+            float mono = (pcm[i * CHANNELS] + pcm[i * CHANNELS + 1]) / 65536.0f;
+            g_fft_in[g_fft_idx].r = mono * g_hanning[g_fft_idx];
+            g_fft_in[g_fft_idx].i = 0;
 
-        g_fft_in[g_fft_idx].r = mono * g_hanning[g_fft_idx];
-        g_fft_in[g_fft_idx].i = 0;
+            if (++g_fft_idx >= FFT_SIZE) {
+                // finally doing the math
+                kiss_fft(g_fft_cfg, g_fft_in, g_fft_out_cpx);
+                
+                pthread_mutex_lock(&g_vis.mutex);
+                for (int k = 0; k < VIS_BARS; k++) {
+                    int bin = g_bin_map[k];
+                    if (bin >= FFT_SIZE / 2) bin = FFT_SIZE / 2 - 1;
 
-        if (++g_fft_idx >= FFT_SIZE) {
-            // finally doing the math
-            kiss_fft(g_fft_cfg, g_fft_in, g_fft_out_cpx);
+                    float r = g_fft_out_cpx[bin].r;
+                    float i = g_fft_out_cpx[bin].i;
+                    float mag = sqrtf(r * r + i * i) / FFT_SIZE;
 
-            pthread_mutex_lock(&g_vis.mutex);
-            for (int k = 0; k < VIS_BARS; k++) {
-                int bin = g_bin_map[k];
-                if (bin >= FFT_SIZE / 2) bin = FFT_SIZE / 2 - 1;
+                    // gate the noise floor
+                    if (mag < 0.0002f) mag = 0.0f;
 
-                float r = g_fft_out_cpx[bin].r;
-                float i = g_fft_out_cpx[bin].i;
-                float mag = sqrtf(r * r + i * i) / FFT_SIZE;
+                    // aggressive slope to bring out the highs
+                    float base_slope = sqrtf((float)k + 1.0f);
+                    float high_boost = 1.0f + powf((float)k / VIS_BARS, 2.5f) * 6.0f;
+                    float slope = base_slope * high_boost;
 
-                // gate the noise floor
-                if (mag < 0.0002f) mag = 0.0f;
+                    float vis_val = powf(mag * slope, 0.9f) * 260.0f;
+                    if (vis_val < 0) vis_val = 0;
 
-                // aggressive slope to bring out the highs
-                float base_slope = sqrtf((float)k + 1.0f);
-                float high_boost = 1.0f + powf((float)k / VIS_BARS, 2.5f) * 6.0f;
-                float slope = base_slope * high_boost;
-
-                float vis_val = powf(mag * slope, 0.9f) * 260.0f;
-                if (vis_val < 0) vis_val = 0;
-
-                // smoothing
-                if (vis_val > g_vis.bins[k])
-                    g_vis.bins[k] = g_vis.bins[k] * 0.15f + vis_val * 0.85f;
-                else
-                    g_vis.bins[k] = g_vis.bins[k] * 0.85f + vis_val * 0.15f;
+                    // smoothing
+                    if (vis_val > g_vis.bins[k])
+                        g_vis.bins[k] = g_vis.bins[k] * 0.15f + vis_val * 0.85f;
+                    else
+                        g_vis.bins[k] = g_vis.bins[k] * 0.85f + vis_val * 0.15f;
+                }
+                pthread_mutex_unlock(&g_vis.mutex);
+                g_fft_idx = 0;
             }
-            pthread_mutex_unlock(&g_vis.mutex);
-            g_fft_idx = 0;
         }
+    } else {
+        // clear bins slowly when silent
+        pthread_mutex_lock(&g_vis.mutex);
+        for (int k = 0; k < VIS_BARS; k++) g_vis.bins[k] *= 0.9f;
+        pthread_mutex_unlock(&g_vis.mutex);
     }
 
     // smooth the bass for the tail animation
-    float current_vol = (vol_sum / samples) * 4.0f;
-    if (current_vol > 0.001f) g_last_audio_time = GetTime();
-
     if (current_vol > 1.5f) current_vol = 1.5f;
     g_bass_smooth = g_bass_smooth * 0.85f + current_vol * 0.15f;
 }
@@ -118,7 +125,10 @@ static int rb_read_cb(void *stream, unsigned char *ptr, int nbytes) {
     return (int)rb_read((RingBuffer *)stream, ptr, nbytes);
 }
 
+#include "platform.h"
+
 void *DecodeThread(void *lpParam) {
+    PlatformSetCurrentThreadPriority(g_platform, 1);
     RingBuffer *rb = (RingBuffer *)lpParam;
     int16_t pcm[4096 * CHANNELS];
     OpusFileCallbacks cb = { rb_read_cb, 0, 0, 0 };
@@ -138,6 +148,12 @@ void *DecodeThread(void *lpParam) {
                 if (samples < 0) break;
                 WaitTime(0.01);
                 continue;
+            }
+            static float bitrate_timer = 0;
+            bitrate_timer += (float)samples / SAMPLE_RATE;
+            if (bitrate_timer > 2.0f) {
+                g_state.stream_bitrate = (int)op_bitrate(op, -1);
+                bitrate_timer = 0;
             }
             if (g_pcm_rb) rb_write(g_pcm_rb, (uint8_t *)pcm, samples * CHANNELS * sizeof(int16_t));
         }

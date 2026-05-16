@@ -8,7 +8,6 @@
 void InitNetwork(void);
 void CleanupNetwork(void);
 void StartAudioStream(RingBuffer *rb);
-void NetLog(const char *fmt, ...);
 
 typedef struct {
     char title[256];

@@ -93,3 +93,7 @@ void PlatformSetWindowFocusable(Platform *p, void *windowHandle, bool focusable)
         [window setIgnoresMouseEvents:YES];
     }
 }
+void PlatformSetCurrentThreadPriority(Platform *p, int priority) {
+    (void)p;
+    (void)priority;
+}

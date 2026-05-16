@@ -113,3 +113,7 @@ void PlatformSetWindowFocusable(Platform *p, void *windowHandle, bool focusable)
     (void)focusable;
     // nothing needed here iirc
 }
+void PlatformSetCurrentThreadPriority(Platform *p, int priority) {
+    (void)p;
+    (void)priority;
+}

@@ -68,7 +68,7 @@ void InitUI(void) {
 void UpdateUIState(void) {
     // ticking the clock
     if (g_state.duration > 0) {
-        g_state.elapsed += GetFrameTime();
+        g_state.elapsed = g_state.base_elapsed + (float)(g_state.samples_played - g_state.samples_at_base) / SAMPLE_RATE;
         if (g_state.elapsed > g_state.duration) g_state.elapsed = (float)g_state.duration;
         g_state.progress_lerp = SmoothLerp(g_state.progress_lerp, g_state.elapsed / (float)g_state.duration, 0.1f);
     }
@@ -157,17 +157,17 @@ static void DrawScene(void) {
 
         if (!isBottom) {
             // normal. bars grow downward from y=3
-            DrawRectangle(bx, 3, bw < 1 ? 1 : bw, (int)mag,
-                          (Color) { bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.6f) });
-            DrawRectangleGradientV(bx, 3, bw < 1 ? 1 : bw, (int)mag, bCol,
-                                   (Color) { bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.3f) });
+            if (mag > 1.0f) {
+                DrawRectangleGradientV(bx, 3, bw < 1 ? 1 : bw, (int)mag, bCol,
+                                       (Color) { bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.3f) });
+            }
         } else {
             // bottom. bars grow upward from y=147
-            int by = 147 - (int)mag;
-            DrawRectangle(bx, by, bw < 1 ? 1 : bw, (int)mag,
-                          (Color) { bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.6f) });
-            DrawRectangleGradientV(bx, by, bw < 1 ? 1 : bw, (int)mag,
-                                   (Color) { bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.3f) }, bCol);
+            if (mag > 1.0f) {
+                int by = 147 - (int)mag;
+                DrawRectangleGradientV(bx, by, bw < 1 ? 1 : bw, (int)mag,
+                                       (Color) { bCol.r, bCol.g, bCol.b, (unsigned char)(a * 0.3f) }, bCol);
+            }
         }
     }
     pthread_mutex_unlock(&g_vis.mutex);
@@ -177,11 +177,9 @@ static void DrawScene(void) {
         unsigned char a8 = (unsigned char)(255 * g_state.info_slide);
         float fX = Lerp(460.0f, 10.0f, g_state.info_slide);
 
-        // cover art with a metric ton of shadows
+        // cover art with a single shadow
         if (g_cover_art.id != 0) {
-            DrawRectangle(fX + 16, anchorY - 24, 72, 72, (Color) { 0, 0, 0, (unsigned char)(a8 * 0.2f) });
-            DrawRectangle(fX + 14, anchorY - 26, 72, 72, (Color) { 0, 0, 0, (unsigned char)(a8 * 0.35f) });
-            DrawRectangle(fX + 12, anchorY - 28, 72, 72, (Color) { 0, 0, 0, (unsigned char)(a8 * 0.5f) });
+            DrawRectangle(fX + 12, anchorY - 28, 76, 76, (Color) { 0, 0, 0, (unsigned char)(a8 * 0.4f) });
             DrawTexturePro(g_cover_art, (Rectangle) { 0, 0, (float)g_cover_art.width, (float)g_cover_art.height },
                            (Rectangle) { fX + 8, anchorY - 32, 72, 72 }, (Vector2) { 0, 0 }, 0.0f,
                            (Color) { 255, 255, 255, a8 });
@@ -332,9 +330,6 @@ static void DrawScene(void) {
 }
 
 void DrawUI(void) {
-    BeginDrawing();
-    ClearBackground(BLANK);
-
     int isSide = SnapIsSide(g_state.snap_pos);
     int isRight = SnapIsRight(g_state.snap_pos);
 
@@ -380,6 +375,4 @@ void DrawUI(void) {
         DrawCircleLinesV((Vector2) { tx, ty }, r, (Color) { 236, 72, 153, a });
         DrawCircleLinesV((Vector2) { tx, ty }, r - 3.0f, (Color) { 139, 92, 246, (unsigned char)(a * 0.6f) });
     }
-
-    EndDrawing();
 }

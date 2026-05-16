@@ -30,6 +30,7 @@
 
 #include "state.h"
 #include "raylib.h"
+#include "platform.h"
 
 static TrackMetadata g_meta = { "Connecting...", "Tripletail FM", "", 0, 0 };
 static pthread_mutex_t g_meta_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -40,14 +41,6 @@ static pthread_mutex_t g_chat_send_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void RequestStreamReconnect(void) { g_reconnect_requested = 1; }
 
-void NetLog(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    printf("[NET] ");
-    vprintf(fmt, args);
-    printf("\n");
-    va_end(args);
-}
 
 static Color ParseHexColor(const char *hex) {
     if (!hex || hex[0] != '#') return (Color){ 255, 255, 255, 255 };
@@ -91,11 +84,9 @@ static void HandleChatIncoming(CURL *curl, char *buf) {
             sscanf(u + 8, "%31[^\"]", user);
             sscanf(t + 8, "%127[^\"]", text);
             if (c) sscanf(c + 14, "%15[^\"]", colorStr);
-            NetLog("Parsed Chat: %s: %s", user, text);
             PushChatMessage(user, text, ParseHexColor(colorStr));
         }
     } else if (buf[0] == '0') {
-        NetLog("Chat Handshake received, sending 40...");
         const char *resp = "40";
         size_t sent;
         curl_ws_send(curl, resp, 2, &sent, 0, CURLWS_TEXT);
@@ -107,12 +98,10 @@ static void HandleChatIncoming(CURL *curl, char *buf) {
 }
 
 static void *ChatWebSocketThread(void *arg) {
-    NetLog("Chat thread started");
     char recv_buf[4096];
     while (1) {
         CURL *curl = curl_easy_init();
         if (curl) {
-            NetLog("Connecting to chat socket...");
             curl_easy_setopt(curl, CURLOPT_URL,
                              "wss://tripletail-socket.blueberry.coffee/socket.io/?EIO=4&transport=websocket");
             curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -120,7 +109,6 @@ static void *ChatWebSocketThread(void *arg) {
             CURLcode res = curl_easy_perform(curl);
 
             if (res == CURLE_OK) {
-                NetLog("Chat socket connected");
                 double last_ping = GetTime();
                 while (1) {
                     pthread_mutex_lock(&g_chat_send_mutex);
@@ -134,7 +122,6 @@ static void *ChatWebSocketThread(void *arg) {
                         size_t sent;
                         curl_ws_send(curl, msg, strlen(msg), &sent, 0, CURLWS_TEXT);
                         g_pending_chat[0] = '\0';
-                        NetLog("Sent Chat: %s", msg);
                     }
                     pthread_mutex_unlock(&g_chat_send_mutex);
 
@@ -152,14 +139,12 @@ static void *ChatWebSocketThread(void *arg) {
                         recv_buf[rlen] = 0;
                         HandleChatIncoming(curl, recv_buf);
                     } else if (res != CURLE_AGAIN) {
-                        NetLog("Chat socket receive error: %d", res);
                         break;
                     }
 
-                    sleep_ms(50);
+                    sleep_ms(100);
                 }
             } else {
-                NetLog("Chat socket connection failed: %d", res);
             }
             curl_easy_cleanup(curl);
         }
@@ -175,7 +160,6 @@ void InitNetwork(void) {
     if (f) {
         if (fscanf(f, " %31[^\r\n]", g_state.username) == 1) {
             g_state.has_set_name = 1;
-            NetLog("Loaded username: %s", g_state.username);
         }
         fclose(f);
     }
@@ -183,7 +167,6 @@ void InitNetwork(void) {
     if (!g_state.has_set_name) {
         snprintf(g_state.username, sizeof(g_state.username), "Floofer%d", GetRandomValue(100, 999));
         g_state.user_color = (Color){ (unsigned char)GetRandomValue(100, 255), (unsigned char)GetRandomValue(100, 255), (unsigned char)GetRandomValue(100, 255), 255 };
-        NetLog("Generated random username: %s", g_state.username);
     } else {
         unsigned int hash = 5381;
         for (int i = 0; g_state.username[i]; i++) hash = ((hash << 5) + hash) + g_state.username[i];
@@ -425,6 +408,7 @@ static int StreamProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t 
 }
 
 static void *StreamThread(void *lpParam) {
+    PlatformSetCurrentThreadPriority(g_platform, 1);
     RingBuffer *rb = (RingBuffer *)lpParam;
     while (!rb_is_closed(rb)) {
         CURL *curl = curl_easy_init();

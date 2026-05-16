@@ -74,7 +74,7 @@ size_t rb_write(RingBuffer *rb, const uint8_t *data, size_t len) {
             rb->count += chunk2;
         }
 
-        pthread_cond_broadcast(&rb->cond_has_data);
+        pthread_cond_signal(&rb->cond_has_data);
     }
     pthread_mutex_unlock(&rb->mutex);
     return written;
@@ -110,7 +110,7 @@ size_t rb_read(RingBuffer *rb, uint8_t *data, size_t len) {
             rb->count -= chunk2;
         }
 
-        pthread_cond_broadcast(&rb->cond_has_space);
+        pthread_cond_signal(&rb->cond_has_space);
 
         break;
     }
@@ -142,7 +142,7 @@ size_t rb_read_nonblocking(RingBuffer *rb, uint8_t *data, size_t len) {
             read += chunk2;
             rb->count -= chunk2;
         }
-        pthread_cond_broadcast(&rb->cond_has_space);
+        pthread_cond_signal(&rb->cond_has_space);
     }
     pthread_mutex_unlock(&rb->mutex);
     return read;

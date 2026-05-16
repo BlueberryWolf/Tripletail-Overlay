@@ -289,7 +289,8 @@ static void ApplyMetadata(TrackMetadata *meta) {
         strcpy(g_state.title, meta->title);
         strcpy(g_state.artist, meta->artist);
         g_state.popup_timer = 10.0f;
-        g_state.elapsed = (float)meta->elapsed;
+        g_state.base_elapsed = (float)meta->elapsed;
+        g_state.samples_at_base = g_state.samples_played;
         g_state.progress_lerp = 0.0f;
         if (strcmp(meta->art_url, g_state.art_url) != 0 && strlen(meta->art_url) > 0) {
             strcpy(g_state.art_url, meta->art_url);
@@ -298,7 +299,8 @@ static void ApplyMetadata(TrackMetadata *meta) {
             pthread_detach(tid);
         }
     } else if (fabs(g_state.elapsed - (float)meta->elapsed) > 2.0f) {
-        g_state.elapsed = (float)meta->elapsed;
+        g_state.base_elapsed = (float)meta->elapsed;
+        g_state.samples_at_base = g_state.samples_played;
     }
     g_state.duration = meta->duration;
 }
@@ -351,8 +353,8 @@ int main(void) {
 #endif
 
     // buffers for the audio juice
-    RingBuffer *net_rb = rb_create(128 * 1024);
-    g_pcm_rb = rb_create(SAMPLE_RATE * CHANNELS * sizeof(int16_t));
+    RingBuffer *net_rb = rb_create(64 * 1024);
+    g_pcm_rb = rb_create(SAMPLE_RATE * CHANNELS * sizeof(int16_t)); // 1.0s
     StartAudioStream(net_rb);
 
     // decoder
@@ -398,10 +400,6 @@ int main(void) {
         my /= scale.y;
 #endif
 
-        // screen-space mouse position (for drag snapping)
-        float gx, gy;
-        PlatformGetGlobalMousePos(g_platform, &gx, &gy);
-
         // hover
         Vector2 tailPos = TailWindowPos(g_state.snap_pos);
         g_state.hovering = CheckCollisionPointCircle((Vector2) { mx, my }, tailPos, 35);
@@ -410,13 +408,15 @@ int main(void) {
         if (g_state.hovering && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !dragging) {
             dragging = 1;
             drag_committed = 0;
-            drag_origin_gx = gx;
-            drag_origin_gy = gy;
+            PlatformGetGlobalMousePos(g_platform, &drag_origin_gx, &drag_origin_gy);
             // disable passthrough while dragging to keep getting events
             ClearWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
         }
 
         if (dragging) {
+            float gx, gy;
+            PlatformGetGlobalMousePos(g_platform, &gx, &gy);
+
             // only snap if mouse has moved enough
             float dist
                 = sqrtf((gx - drag_origin_gx) * (gx - drag_origin_gx) + (gy - drag_origin_gy) * (gy - drag_origin_gy));
@@ -517,6 +517,27 @@ int main(void) {
                 PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
             }
 
+        // cursor and passthrough state guards
+        static int last_cursor = -1;
+        static int last_passthrough = -1;
+
+        int current_cursor = MOUSE_CURSOR_DEFAULT;
+        if (g_state.hovering || g_state.chat_input_active || dragging || g_state.status_timer > 0.1f || g_state.popup_timer > 0.1f) {
+            current_cursor = MOUSE_CURSOR_IBEAM;
+        }
+
+        if (current_cursor != last_cursor) {
+            SetMouseCursor(current_cursor);
+            last_cursor = current_cursor;
+        }
+
+        int current_passthrough = !(g_state.hovering || dragging || g_state.chat_input_active);
+        if (current_passthrough != last_passthrough) {
+            if (current_passthrough) SetWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
+            else ClearWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
+            last_passthrough = current_passthrough;
+        }
+
             if (IsKeyPressed(KEY_ESCAPE)) {
                 g_state.chat_input_active = 0;
                 PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
@@ -567,7 +588,9 @@ int main(void) {
         if (GetLatestMetadata(&new_meta)) {
             // calculate current audio delay
             double pcm_delay = (double)rb_available(g_pcm_rb) / (SAMPLE_RATE * CHANNELS * sizeof(int16_t));
-            double net_delay = (double)rb_available(net_rb) / 16384.0; // estimate at 128kbps
+            
+            double bitrate = (g_state.stream_bitrate > 0) ? (double)g_state.stream_bitrate : 128000.0;
+            double net_delay = (double)rb_available(net_rb) / (bitrate / 8.0);
 
             g_pending_meta.meta = new_meta;
             g_pending_meta.ready_time = GetTime() + pcm_delay + net_delay;
@@ -593,17 +616,18 @@ int main(void) {
         }
 
         LoadPendingCoverArt();
-
         // trim the fat
         static float ram_timer = 0;
         ram_timer += GetFrameTime();
-        if (ram_timer > 5.0f) {
+        if (ram_timer > 10.0f) {
             PlatformOptimizeMemory(g_platform);
             ram_timer = 0;
         }
-
         UpdateUIState();
+        BeginDrawing();
+        ClearBackground(BLANK);
         DrawUI();
+        EndDrawing();
     }
 
     // clean up the mess

@@ -89,6 +89,13 @@ void PlatformSetWindowFocusable(Platform *p, void *windowHandle, bool focusable)
         SetActiveWindow(hwnd);
     }
 }
+void PlatformSetCurrentThreadPriority(Platform *p, int priority) {
+    (void)p;
+    int pval = THREAD_PRIORITY_NORMAL;
+    if (priority > 0) pval = THREAD_PRIORITY_HIGHEST;
+    if (priority > 1) pval = THREAD_PRIORITY_TIME_CRITICAL;
+    SetThreadPriority(GetCurrentThread(), pval);
+}
 
 bool PlatformEnsureSingleInstance(Platform *p) {
     p->hMutex = CreateMutexA(NULL, TRUE, "TripletailOverlayMutex_v1");

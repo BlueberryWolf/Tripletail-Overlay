@@ -21,6 +21,10 @@ typedef enum {
 #include "raylib.h"
 #include "ringbuffer.h"
 #include <pthread.h>
+#include <stdint.h>
+
+typedef struct Platform Platform;
+extern Platform *g_platform;
 
 typedef struct {
     char user[32];
@@ -63,6 +67,10 @@ typedef struct {
     char username[32];
     Color user_color;
     int has_set_name;
+    int stream_bitrate;
+    uint64_t samples_played;
+    float base_elapsed;
+    uint64_t samples_at_base;
 } AppState;
 
 typedef struct {
