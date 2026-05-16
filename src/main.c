@@ -183,6 +183,22 @@ static Vector2 TailWindowPos(SnapPos snap) {
     }
 }
 
+static Rectangle ChatInputWindowRect(SnapPos snap) {
+    float bx = 80.0f, by = SnapIsBottom(snap) ? 30.0f : 110.0f, bw = 320.0f, bh = 34.0f;
+    switch (snap) {
+    case SNAP_LEFT_TOP:
+    case SNAP_LEFT_CENTER:
+    case SNAP_LEFT_BOTTOM:
+        return (Rectangle){ by, 500.0f - bx - bw, bh, bw };
+    case SNAP_RIGHT_TOP:
+    case SNAP_RIGHT_CENTER:
+    case SNAP_RIGHT_BOTTOM:
+        return (Rectangle){ 150.0f - by - bh, bx, bh, bw };
+    default:
+        return (Rectangle){ bx, by, bw, bh };
+    }
+}
+
 // find nearest snap zone based on screen-space cursor position
 static SnapPos SnapFromScreenPos(float gx, float gy, int monW, int monH) {
     SnapPos best = SNAP_TOP_RIGHT;
@@ -401,9 +417,6 @@ int main(void) {
         }
 
         if (dragging) {
-            int mon = GetCurrentMonitor();
-            int mw = GetMonitorWidth(mon), mh = GetMonitorHeight(mon);
-
             // only snap if mouse has moved enough
             float dist
                 = sqrtf((gx - drag_origin_gx) * (gx - drag_origin_gx) + (gy - drag_origin_gy) * (gy - drag_origin_gy));
@@ -442,6 +455,16 @@ int main(void) {
                     SaveSnap(g_state.snap_pos, g_state.monitor_idx);
                     g_state.status_timer = 2.0f;
                     snprintf(g_state.status_text, sizeof(g_state.status_text), "%s", SnapName(g_state.snap_pos));
+                } else {
+                    g_state.chat_input_active = !g_state.chat_input_active;
+                    if (g_state.chat_input_active) {
+                        g_state.chat_input[0] = '\0';
+                        // give me my fricken inputs
+                        ClearWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
+                        PlatformSetWindowFocusable(g_platform, GetWindowHandle(), true);
+                    } else {
+                        PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
+                    }
                 }
                 g_state.last_hover = -1;
             }
@@ -449,12 +472,63 @@ int main(void) {
 
         // toggle click-through
         if (!dragging) {
-            if (g_state.hovering != g_state.last_hover) {
-                if (g_state.hovering)
+            int needs_focus = g_state.hovering || g_state.chat_input_active;
+            if (needs_focus != g_state.last_hover) {
+                if (needs_focus)
                     ClearWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
                 else
                     SetWindowState(FLAG_WINDOW_MOUSE_PASSTHROUGH);
-                g_state.last_hover = g_state.hovering;
+                g_state.last_hover = needs_focus;
+            }
+        }
+
+        if (g_state.chat_input_active) {
+            int key = GetCharPressed();
+            while (key > 0) {
+                if ((key >= 32) && (key <= 125) && (strlen(g_state.chat_input) < 126)) {
+                    int len = strlen(g_state.chat_input);
+                    g_state.chat_input[len] = (char)key;
+                    g_state.chat_input[len + 1] = '\0';
+                }
+                key = GetCharPressed();
+            }
+
+            if (IsKeyPressed(KEY_BACKSPACE)) {
+                int len = strlen(g_state.chat_input);
+                if (len > 0) g_state.chat_input[len - 1] = '\0';
+            }
+
+            if (IsKeyPressed(KEY_ENTER)) {
+                if (strlen(g_state.chat_input) > 0) {
+                    if (!g_state.has_set_name) {
+                        strncpy(g_state.username, g_state.chat_input, 31);
+                        g_state.has_set_name = 1;
+                        FILE *f = fopen("name.txt", "w");
+                        if (f) {
+                            fprintf(f, "%s", g_state.username);
+                            fclose(f);
+                        }
+                    } else {
+                        SendChatMessage(g_state.chat_input);
+                    }
+                    g_state.chat_input[0] = '\0';
+                }
+                g_state.chat_input_active = 0;
+                PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
+            }
+
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                g_state.chat_input_active = 0;
+                PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
+            }
+            
+            // escape to close ts
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !g_state.hovering) {
+                Rectangle inputRect = ChatInputWindowRect(g_state.snap_pos);
+                if (!CheckCollisionPointRec((Vector2){mx, my}, inputRect)) {
+                     g_state.chat_input_active = 0;
+                     PlatformSetWindowFocusable(g_platform, GetWindowHandle(), false);
+                }
             }
         }
 

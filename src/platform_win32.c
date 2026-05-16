@@ -70,6 +70,26 @@ void PlatformSetWindowOverlay(Platform *p, void *windowHandle) {
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 
+void PlatformSetWindowFocusable(Platform *p, void *windowHandle, bool focusable) {
+    (void)p;
+    if (!windowHandle) return;
+    HWND hwnd = (HWND)windowHandle;
+
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if (focusable) {
+        style &= ~WS_EX_NOACTIVATE;
+    } else {
+        style |= WS_EX_NOACTIVATE;
+    }
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, style);
+    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+
+    if (focusable) {
+        SetForegroundWindow(hwnd);
+        SetActiveWindow(hwnd);
+    }
+}
+
 bool PlatformEnsureSingleInstance(Platform *p) {
     p->hMutex = CreateMutexA(NULL, TRUE, "TripletailOverlayMutex_v1");
     if (p->hMutex == NULL || GetLastError() == ERROR_ALREADY_EXISTS) {

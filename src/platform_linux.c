@@ -106,3 +106,10 @@ bool PlatformEnsureSingleInstance(Platform *p) {
     }
     return true;
 }
+
+void PlatformSetWindowFocusable(Platform *p, void *windowHandle, bool focusable) {
+    (void)p;
+    (void)windowHandle;
+    (void)focusable;
+    // nothing needed here iirc
+}

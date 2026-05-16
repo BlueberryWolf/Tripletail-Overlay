@@ -81,3 +81,15 @@ bool PlatformEnsureSingleInstance(Platform *p) {
     }
     return true;
 }
+
+void PlatformSetWindowFocusable(Platform *p, void *windowHandle, bool focusable) {
+    (void)p;
+    if (!windowHandle) return;
+    NSWindow *window = (NSWindow *)windowHandle;
+    if (focusable) {
+        [window setIgnoresMouseEvents:NO];
+        [window makeKeyAndOrderFront:nil];
+    } else {
+        [window setIgnoresMouseEvents:YES];
+    }
+}

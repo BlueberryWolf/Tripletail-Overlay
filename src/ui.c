@@ -35,18 +35,18 @@ static float SmoothLerp(float current, float target, float speed) {
 }
 
 // returns 1 if snap is a side (vertical) orientation
-static int SnapIsSide(SnapPos snap) {
+int SnapIsSide(SnapPos snap) {
     return snap == SNAP_LEFT_TOP || snap == SNAP_LEFT_CENTER || snap == SNAP_LEFT_BOTTOM || snap == SNAP_RIGHT_TOP
            || snap == SNAP_RIGHT_CENTER || snap == SNAP_RIGHT_BOTTOM;
 }
 
 // returns 1 if snap is on the bottom half
-static int SnapIsBottom(SnapPos snap) {
+int SnapIsBottom(SnapPos snap) {
     return snap == SNAP_BOTTOM_LEFT || snap == SNAP_BOTTOM_CENTER || snap == SNAP_BOTTOM_RIGHT;
 }
 
 // returns 1 if snap is on the right side
-static int SnapIsRight(SnapPos snap) {
+int SnapIsRight(SnapPos snap) {
     return snap == SNAP_RIGHT_TOP || snap == SNAP_RIGHT_CENTER || snap == SNAP_RIGHT_BOTTOM;
 }
 
@@ -92,6 +92,28 @@ void UpdateUIState(void) {
     }
 
     if (g_state.status_timer > 0.0f) g_state.status_timer -= GetFrameTime() * 1.5f;
+
+    for (int i = 0; i < MAX_VISIBLE_CHAT; i++) {
+        if (g_state.chat[i].timer > 0.0f) {
+            g_state.chat[i].timer -= GetFrameTime();
+            if (g_state.chat[i].timer < 1.0f) {
+                g_state.chat[i].alpha = g_state.chat[i].timer;
+                g_state.chat[i].y_offset = SmoothLerp(g_state.chat[i].y_offset, 15.0f, 0.1f);
+            } else {
+                g_state.chat[i].alpha = 1.0f;
+                g_state.chat[i].y_offset = SmoothLerp(g_state.chat[i].y_offset, 0.0f, 0.2f);
+            }
+        } else {
+            g_state.chat[i].alpha = 0.0f;
+            g_state.chat[i].y_offset = 10.0f;
+        }
+    }
+
+    if (g_state.chat_input_active) {
+        g_state.chat_focus_alpha = SmoothLerp(g_state.chat_focus_alpha, 1.0f, 0.15f);
+    } else {
+        g_state.chat_focus_alpha = SmoothLerp(g_state.chat_focus_alpha, 0.0f, 0.2f);
+    }
 }
 
 static void DrawScene(void) {
@@ -231,6 +253,70 @@ static void DrawScene(void) {
         DrawTextEx(g_font_med, g_state.status_text, (Vector2) { anchorX - tsize.x / 2, anchorY + 50 + offset }, 16, 0,
                    (Color) { 255, 255, 255, a });
     }
+
+    float chatY = SnapIsBottom(g_state.snap_pos) ? 40.0f : 80.0f;
+    for (int i = 0; i < MAX_VISIBLE_CHAT; i++) {
+        if (g_state.chat[i].timer > 0.0f) {
+            unsigned char a = (unsigned char)(255 * g_state.chat[i].alpha);
+            Color userColor = g_state.chat[i].color;
+            userColor.a = a;
+            Color textColor = { 255, 255, 255, a };
+
+            float y_off = g_state.chat[i].y_offset;
+            float popOffset = 0.0f;
+            if (g_state.chat[i].timer > 7.7f) {
+                popOffset = (g_state.chat[i].timer - 7.7f) * 20.0f;
+            }
+
+            char userPart[64];
+            snprintf(userPart, sizeof(userPart), "%s: ", g_state.chat[i].user);
+            Vector2 userSize = MeasureTextEx(g_font_reg, userPart, 16, 0);
+            
+            Vector2 basePos = { 10, chatY - popOffset + y_off };
+
+            // shadow
+            DrawTextEx(g_font_reg, userPart, (Vector2){ basePos.x + 1, basePos.y + 1 }, 16, 0, (Color){ 0, 0, 0, (unsigned char)(a * 0.5f) });
+            DrawTextEx(g_font_reg, g_state.chat[i].text, (Vector2){ basePos.x + 1 + userSize.x, basePos.y + 1 }, 16, 0, (Color){ 0, 0, 0, (unsigned char)(a * 0.5f) });
+
+            // content
+            DrawTextEx(g_font_reg, userPart, basePos, 16, 0, userColor);
+            DrawTextEx(g_font_reg, g_state.chat[i].text, (Vector2){ basePos.x + userSize.x, basePos.y }, 16, 0, textColor);
+
+            chatY += 20.0f;
+        }
+    }
+
+    // dim
+    if (g_state.chat_focus_alpha > 0.01f) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){ 0, 0, 0, (unsigned char)(g_state.chat_focus_alpha * 100) });
+    }
+
+    if (g_state.chat_focus_alpha > 0.01f) {
+        float falpha = g_state.chat_focus_alpha;
+        unsigned char a = (unsigned char)(falpha * 255);
+        float boxW = 320.0f;
+        float boxH = 34.0f;
+        
+        float boxX = 80.0f - (1.0f - falpha) * 40.0f;
+        float boxY = SnapIsBottom(g_state.snap_pos) ? 30.0f : 110.0f;
+
+        DrawRectangleRounded((Rectangle){ boxX, boxY, boxW, boxH }, 0.2f, 8, (Color){ 20, 20, 20, (unsigned char)(a * 0.95f) });
+        DrawRectangleRoundedLines((Rectangle){ boxX, boxY, boxW, boxH }, 0.2f, 8, 2, (Color){ 168, 85, 247, a });
+        static float cursor_timer = 0;
+        cursor_timer += GetFrameTime();
+        const char *input_text = g_state.chat_input;
+        Vector2 text_size = MeasureTextEx(g_font_reg, input_text, 18, 0);
+        
+        DrawTextEx(g_font_reg, input_text, (Vector2){ boxX + 10, boxY + 8 }, 18, 0, (Color){ 255, 255, 255, a });
+        
+        if (falpha > 0.9f && ((int)(cursor_timer * 2) % 2 == 0)) {
+            DrawRectangle((int)(boxX + 10 + text_size.x + 2), (int)(boxY + 8), 2, 18, (Color){ 168, 85, 247, a });
+        }
+
+        const char *label = g_state.has_set_name ? "Say something..." : "Set your username:";
+        DrawTextEx(g_font_reg, label, (Vector2){ boxX + 2, boxY - 18 }, 14, 0, (Color){ 168, 85, 247, a });
+    }
+
 
     // bouncy tail :3
     static float tail_bounce = 0.0f;

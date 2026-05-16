@@ -12,6 +12,7 @@ void PlatformGetMousePos(Platform *p, void *windowHandle, float *x, float *y);
 void PlatformGetGlobalMousePos(Platform *p, float *x, float *y);
 void PlatformOptimizeMemory(Platform *p);
 void PlatformSetWindowOverlay(Platform *p, void *windowHandle);
+void PlatformSetWindowFocusable(Platform *p, void *windowHandle, bool focusable);
 bool PlatformEnsureSingleInstance(Platform *p);
 
 #endif

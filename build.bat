@@ -20,7 +20,7 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 :: fallback garbage
-set LIBS=-lopusfile -logg -lopus -lcurl -lssl -lcrypto -lssh2 -lzstd -lbrotlidec -lbrotlicommon -lidn2 -lunistring -liconv -lws2_32 -lshlwapi -lbcrypt -lcrypt32 -ladvapi32 -luserenv -lwldap32 -lnormaliz
+set LIBS=-lopusfile -logg -lopus -lcurl -lnghttp2 -lngtcp2 -lngtcp2_crypto_ossl -lnghttp3 -lpsl -lssl -lcrypto -lssh2 -lzstd -lbrotlidec -lbrotlicommon -lidn2 -lunistring -liconv -lws2_32 -lshlwapi -lbcrypt -lcrypt32 -ladvapi32 -luserenv -lwldap32 -lnormaliz -lsecur32 -liphlpapi -lz
 if exist "C:\msys64\mingw64\include\opus" (
     set CFLAGS=%CFLAGS% -IC:\msys64\mingw64\include\opus
 ) else if defined MSYSTEM (

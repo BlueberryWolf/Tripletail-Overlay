@@ -22,6 +22,16 @@ typedef enum {
 #include "ringbuffer.h"
 #include <pthread.h>
 
+typedef struct {
+    char user[32];
+    char text[128];
+    Color color;
+    float timer;
+    float alpha;
+    float y_offset;
+} ChatMessage;
+
+#define MAX_VISIBLE_CHAT 3
 #define FFT_SIZE 2048
 #define SAMPLE_RATE 48000
 #define CHANNELS 2
@@ -46,6 +56,13 @@ typedef struct {
     SnapPos snap_pos;
     int monitor_idx;
     int drag_snap; // -1 = not dragging, else SnapPos of hover zone
+    ChatMessage chat[MAX_VISIBLE_CHAT];
+    char chat_input[128];
+    int chat_input_active;
+    float chat_focus_alpha;
+    char username[32];
+    Color user_color;
+    int has_set_name;
 } AppState;
 
 typedef struct {

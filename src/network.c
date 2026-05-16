@@ -1,3 +1,9 @@
+#ifdef _WIN32
+    #define Rectangle Rectangle_Windows
+    #define CloseWindow CloseWindow_Windows
+    #define ShowCursor ShowCursor_Windows
+#endif
+
 #include "network.h"
 #include <curl/curl.h>
 #include <pthread.h>
@@ -7,23 +13,186 @@
 #include <string.h>
 
 #ifdef _WIN32
-#include <windows.h>
-#define sleep_ms(ms) Sleep(ms)
+    #include <windows.h>
+    #undef Rectangle
+    #undef CloseWindow
+    #undef ShowCursor
+    #undef LoadImage
+    #undef DrawText
+    #undef DrawTextEx
+    #undef PlaySound
+    
+    #define sleep_ms(ms) Sleep(ms)
 #else
-#include <unistd.h>
-#define sleep_ms(ms) usleep((ms) * 1000)
+    #include <unistd.h>
+    #define sleep_ms(ms) usleep((ms) * 1000)
 #endif
+
+#include "state.h"
+#include "raylib.h"
 
 static TrackMetadata g_meta = { "Connecting...", "Tripletail FM", "", 0, 0 };
 static pthread_mutex_t g_meta_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int g_meta_changed = 1;
 static volatile int g_reconnect_requested = 0;
+static char g_pending_chat[128] = { 0 };
+static pthread_mutex_t g_chat_send_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void RequestStreamReconnect(void) { g_reconnect_requested = 1; }
+
+void NetLog(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    printf("[NET] ");
+    vprintf(fmt, args);
+    printf("\n");
+    va_end(args);
+}
+
+static Color ParseHexColor(const char *hex) {
+    if (!hex || hex[0] != '#') return (Color){ 255, 255, 255, 255 };
+    int r, g, b;
+    if (sscanf(hex + 1, "%02x%02x%02x", &r, &g, &b) == 3) {
+        return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
+    }
+    return (Color){ 255, 255, 255, 255 };
+}
+
+static void PushChatMessage(const char *user, const char *text, Color color) {
+    int slot = 0;
+    for (int i = 0; i < MAX_VISIBLE_CHAT; i++) {
+        if (g_state.chat[i].timer <= 0.0f) {
+            slot = i;
+            break;
+        }
+        if (g_state.chat[i].timer < g_state.chat[slot].timer) slot = i;
+    }
+    strncpy(g_state.chat[slot].user, user, 31);
+    strncpy(g_state.chat[slot].text, text, 127);
+    g_state.chat[slot].color = color;
+    g_state.chat[slot].timer = 8.0f;
+    g_state.chat[slot].alpha = 0.0f;
+    g_state.chat[slot].y_offset = -20.0f;
+}
+
+void SendChatMessage(const char *text) {
+    pthread_mutex_lock(&g_chat_send_mutex);
+    strncpy(g_pending_chat, text, 127);
+    pthread_mutex_unlock(&g_chat_send_mutex);
+}
+
+static void HandleChatIncoming(CURL *curl, char *buf) {
+    if (strncmp(buf, "42", 2) == 0 && strstr(buf, "\"chat_message\"")) {
+        char user[32] = { 0 }, text[128] = { 0 }, colorStr[16] = { 0 };
+        char *u = strstr(buf, "\"user\":\"");
+        char *t = strstr(buf, "\"text\":\"");
+        char *c = strstr(buf, "\"user_color\":\"");
+        if (u && t) {
+            sscanf(u + 8, "%31[^\"]", user);
+            sscanf(t + 8, "%127[^\"]", text);
+            if (c) sscanf(c + 14, "%15[^\"]", colorStr);
+            NetLog("Parsed Chat: %s: %s", user, text);
+            PushChatMessage(user, text, ParseHexColor(colorStr));
+        }
+    } else if (buf[0] == '0') {
+        NetLog("Chat Handshake received, sending 40...");
+        const char *resp = "40";
+        size_t sent;
+        curl_ws_send(curl, resp, 2, &sent, 0, CURLWS_TEXT);
+    } else if (buf[0] == '2') {
+        const char *resp = "3";
+        size_t sent;
+        curl_ws_send(curl, resp, 1, &sent, 0, CURLWS_TEXT);
+    }
+}
+
+static void *ChatWebSocketThread(void *arg) {
+    NetLog("Chat thread started");
+    char recv_buf[4096];
+    while (1) {
+        CURL *curl = curl_easy_init();
+        if (curl) {
+            NetLog("Connecting to chat socket...");
+            curl_easy_setopt(curl, CURLOPT_URL,
+                             "wss://tripletail-socket.blueberry.coffee/socket.io/?EIO=4&transport=websocket");
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+            curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2L);
+            CURLcode res = curl_easy_perform(curl);
+
+            if (res == CURLE_OK) {
+                NetLog("Chat socket connected");
+                double last_ping = GetTime();
+                while (1) {
+                    pthread_mutex_lock(&g_chat_send_mutex);
+                    if (g_pending_chat[0] != '\0') {
+                        char msg[512];
+                        char colorHex[8];
+                        snprintf(colorHex, sizeof(colorHex), "#%02x%02x%02x", g_state.user_color.r,
+                                 g_state.user_color.g, g_state.user_color.b);
+                        snprintf(msg, sizeof(msg), "42[\"chat_message\",{\"user\":\"%s\",\"text\":\"%s\",\"user_color\":\"%s\"}]",
+                                 g_state.username, g_pending_chat, colorHex);
+                        size_t sent;
+                        curl_ws_send(curl, msg, strlen(msg), &sent, 0, CURLWS_TEXT);
+                        g_pending_chat[0] = '\0';
+                        NetLog("Sent Chat: %s", msg);
+                    }
+                    pthread_mutex_unlock(&g_chat_send_mutex);
+
+                    if (GetTime() - last_ping > 20.0) {
+                        const char *ping = "2";
+                        size_t sent;
+                        curl_ws_send(curl, ping, 1, &sent, 0, CURLWS_TEXT);
+                        last_ping = GetTime();
+                    }
+
+                    size_t rlen;
+                    const struct curl_ws_frame *meta;
+                    res = curl_ws_recv(curl, recv_buf, sizeof(recv_buf) - 1, &rlen, &meta);
+                    if (res == CURLE_OK) {
+                        recv_buf[rlen] = 0;
+                        HandleChatIncoming(curl, recv_buf);
+                    } else if (res != CURLE_AGAIN) {
+                        NetLog("Chat socket receive error: %d", res);
+                        break;
+                    }
+
+                    sleep_ms(50);
+                }
+            } else {
+                NetLog("Chat socket connection failed: %d", res);
+            }
+            curl_easy_cleanup(curl);
+        }
+        sleep_ms(5000);
+    }
+    return NULL;
+}
 
 void InitNetwork(void) {
     curl_global_init(CURL_GLOBAL_ALL);
     pthread_mutex_init(&g_meta_mutex, NULL);
+    FILE *f = fopen("name.txt", "r");
+    if (f) {
+        if (fscanf(f, " %31[^\r\n]", g_state.username) == 1) {
+            g_state.has_set_name = 1;
+            NetLog("Loaded username: %s", g_state.username);
+        }
+        fclose(f);
+    }
+    
+    if (!g_state.has_set_name) {
+        snprintf(g_state.username, sizeof(g_state.username), "Floofer%d", GetRandomValue(100, 999));
+        g_state.user_color = (Color){ (unsigned char)GetRandomValue(100, 255), (unsigned char)GetRandomValue(100, 255), (unsigned char)GetRandomValue(100, 255), 255 };
+        NetLog("Generated random username: %s", g_state.username);
+    } else {
+        unsigned int hash = 5381;
+        for (int i = 0; g_state.username[i]; i++) hash = ((hash << 5) + hash) + g_state.username[i];
+        g_state.user_color = (Color){ (unsigned char)(100 + (hash % 155)), (unsigned char)(100 + ((hash >> 8) % 155)), (unsigned char)(100 + ((hash >> 16) % 155)), 255 };
+    }
+
+    pthread_t chat_tid;
+    pthread_create(&chat_tid, NULL, ChatWebSocketThread, NULL);
+    pthread_detach(chat_tid);
 }
 
 void CleanupNetwork(void) {
